@@ -1,0 +1,439 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   0G — Zero Gravity Canvas — Radical UI Design System
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: #000408;
+    color: #E2E8F0;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    user-select: none;
+  }
+
+  /* ─── Custom scrollbars ─────────────────────────────────────────────── */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 200, 255, 0.15);
+    border-radius: 2px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 200, 255, 0.35);
+  }
+
+  input, textarea {
+    outline: none;
+    font-family: 'Inter', sans-serif;
+  }
+
+  code, pre {
+    font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+  }
+
+  ::selection {
+    background: rgba(0, 200, 255, 0.25);
+    color: #E2E8F0;
+  }
+}
+
+/* ─── Component Classes ───────────────────────────────────────────────────── */
+
+@layer components {
+  /* Glass surfaces — the core visual language of Zero Gravity */
+  .glass-panel {
+    background: rgba(4, 8, 20, 0.78);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .glass-elevated {
+    background: rgba(4, 8, 22, 0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .glass-card {
+    background: rgba(0, 5, 16, 0.65);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  .glass-card-active {
+    background: rgba(0, 4, 14, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(0, 200, 255, 0.35);
+    border-radius: 14px;
+    box-shadow:
+      0 0 40px rgba(0, 200, 255, 0.12),
+      0 0 80px rgba(0, 200, 255, 0.06),
+      0 8px 32px rgba(0, 0, 0, 0.4),
+      0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Glow effects */
+  .accent-glow {
+    box-shadow: 0 0 20px rgba(0, 200, 255, 0.25);
+  }
+
+  .accent-glow-sm {
+    box-shadow: 0 0 10px rgba(0, 200, 255, 0.15);
+  }
+
+  .cyan-corona {
+    box-shadow:
+      0 0 20px rgba(0, 200, 255, 0.15),
+      0 0 60px rgba(0, 200, 255, 0.08),
+      inset 0 0 20px rgba(0, 200, 255, 0.03);
+  }
+
+  .purple-corona {
+    box-shadow:
+      0 0 20px rgba(139, 92, 246, 0.15),
+      0 0 60px rgba(139, 92, 246, 0.08);
+  }
+
+  /* Buttons */
+  .btn-primary {
+    @apply bg-cyan hover:bg-cyan-light text-void font-semibold px-4 py-2 rounded-lg transition-all duration-200 hover:shadow-glow active:scale-95;
+  }
+
+  .btn-ghost {
+    @apply text-text-secondary hover:text-text-primary hover:bg-surface px-3 py-1.5 rounded-md transition-all duration-150;
+  }
+
+  .btn-beam {
+    @apply flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold font-mono;
+    background: rgba(0, 255, 136, 0.12);
+    color: #00FF88;
+    border: 1px solid rgba(0, 255, 136, 0.6);
+  }
+
+  .btn-beam:hover {
+    background: rgba(0, 255, 136, 0.2);
+    box-shadow: 0 0 12px rgba(0, 255, 136, 0.25);
+  }
+
+  .btn-beam:active {
+    transform: scale(0.95);
+  }
+
+  .btn-beam:disabled {
+    opacity: 0.5;
+  }
+
+  /* Tags */
+  .tag-pill {
+    @apply text-xs font-mono px-2 py-0.5 rounded-full border;
+  }
+
+  /* Inputs */
+  .input-field {
+    @apply bg-surface border border-border text-text-primary placeholder-text-muted rounded-lg px-3 py-2 w-full transition-all duration-200 focus:border-cyan focus:shadow-glow-sm;
+  }
+
+  .section-divider {
+    @apply border-t border-border;
+  }
+
+  /* Top bar — matches SVG: dark glass, 44px height */
+  .topbar {
+    @apply h-11 flex items-center px-4 gap-3 shrink-0;
+    background: rgba(4, 8, 20, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  /* View switcher pills */
+  .view-pill {
+    @apply px-3 py-1 rounded-full text-[10px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer;
+  }
+
+  .view-pill-active {
+    @apply bg-cyan/15 text-cyan border border-cyan/30;
+  }
+
+  .view-pill-inactive {
+    @apply text-text-muted hover:text-text-secondary border border-transparent hover:border-border;
+  }
+
+  /* Left dock — 52px vertical icon rail */
+  .left-dock {
+    width: 52px;
+    background: rgba(2, 4, 12, 0.85);
+    border-right: 1px solid rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .dock-icon {
+    @apply w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200 cursor-pointer;
+    color: #64748B;
+  }
+
+  .dock-icon:hover {
+    background: rgba(0, 200, 255, 0.08);
+    color: #94A3B8;
+  }
+
+  .dock-icon-active {
+    background: rgba(0, 200, 255, 0.12);
+    color: #00C8FF;
+    box-shadow: 0 0 12px rgba(0, 200, 255, 0.15);
+  }
+
+  /* Mission Control (chat panel) — matches SVG styling */
+  .mission-control {
+    @apply flex flex-col h-full;
+    width: 364px;
+    background: rgba(4, 8, 20, 0.78);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-left: 2px solid rgba(0, 200, 255, 0.5);
+    position: relative;
+  }
+
+  .mission-control::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 0;
+    bottom: 0;
+    width: 16px;
+    background: radial-gradient(ellipse at left, rgba(0, 200, 255, 0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* Status bar */
+  .status-bar {
+    @apply h-6 flex items-center justify-between px-3 text-[10px] font-mono shrink-0;
+    background: rgba(2, 4, 12, 0.95);
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    color: #4A5068;
+  }
+}
+
+/* ─── Utility Classes ─────────────────────────────────────────────────────── */
+
+@layer utilities {
+  .text-gradient {
+    background: linear-gradient(135deg, #00C8FF 0%, #66F0FF 50%, #8B5CF6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-subtle {
+    background: linear-gradient(135deg, #00C8FF 0%, #8B92A8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .bg-gradient-radial {
+    background: radial-gradient(ellipse at center, rgba(0, 200, 255, 0.06) 0%, transparent 70%);
+  }
+
+  .bg-gradient-void {
+    background: radial-gradient(ellipse at 50% 50%, #000408 0%, #000204 100%);
+  }
+
+  .drag-region {
+    -webkit-app-region: drag;
+  }
+
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  .writing-indicator {
+    background: linear-gradient(90deg, transparent, rgba(0, 200, 255, 0.4), transparent);
+    background-size: 200% 100%;
+    animation: beamShimmer 1.5s infinite;
+  }
+
+  /* Nebula gradient layers — matches SVG radial gradients */
+  .nebula-cyan {
+    background: radial-gradient(ellipse at 15% 20%, rgba(0, 24, 40, 0.9) 0%, transparent 55%);
+  }
+
+  .nebula-purple {
+    background: radial-gradient(ellipse at 85% 80%, rgba(13, 0, 32, 0.8) 0%, transparent 45%);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   10 CSS Keyframe Animations — SVG Radical Concept
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 1. twinkle — star opacity flutter */
+@keyframes twinkle {
+  0%, 100% { opacity: var(--star-base-opacity, 0.3); }
+  50%      { opacity: var(--star-peak-opacity, 0.8); }
+}
+
+/* 2. starPulse — near star glow breathe */
+@keyframes starPulse {
+  0%, 100% { box-shadow: 0 0 2px rgba(0,200,255,0.3); }
+  50%      { box-shadow: 0 0 8px rgba(0,200,255,0.6); }
+}
+
+/* 3. cursorBlink — AI cursor in code cards */
+@keyframes cursorBlink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* 4. livePulse — "Live" dot in top bar */
+@keyframes livePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.5; transform: scale(1.3); }
+}
+
+/* 5. thinkDot — thinking indicator cascade */
+@keyframes thinkDot {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40%           { opacity: 1; transform: scale(1); }
+}
+
+/* 6. nebulaBreathe — background nebula drift */
+@keyframes nebulaBreathe {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50%      { opacity: 1; transform: scale(1.03); }
+}
+
+/* 7. orbitDash — constellation connecting lines */
+@keyframes orbitDash {
+  to { stroke-dashoffset: -20; }
+}
+
+/* 8. peerPulse — peer activity rings on constellation nodes */
+@keyframes peerPulse {
+  0%   { transform: scale(1); opacity: 0.4; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+/* 9. warpGlow — code apply flash effect */
+@keyframes warpGlow {
+  0%   { opacity: 0; box-shadow: 0 0 0 rgba(0,255,136,0); }
+  50%  { opacity: 1; box-shadow: 0 0 30px rgba(0,255,136,0.4); }
+  100% { opacity: 0; box-shadow: 0 0 0 rgba(0,255,136,0); }
+}
+
+/* 10. beamShimmer — writing indicator / input focus shimmer */
+@keyframes beamShimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Legacy keyframes (for Tailwind animation classes) */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes starTwinkle {
+  0%, 100% { opacity: 0.3; }
+  50%      { opacity: 1; }
+}
+
+@keyframes nebulaPulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50%      { opacity: 0.7; transform: scale(1.05); }
+}
+
+@keyframes cockpitPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(0,200,255,0.3); }
+  50%      { box-shadow: 0 0 20px rgba(0,200,255,0.6); }
+}
+
+@keyframes ringExpand {
+  0%   { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+/* ─── Monaco Editor Overrides ─────────────────────────────────────────────── */
+
+.monaco-editor {
+  background: transparent !important;
+}
+
+/* A6: git diff gutter (uncommitted local changes) */
+.git-gutter-add {
+  border-left: 3px solid rgba(0, 255, 136, 0.65);
+  margin-left: 3px;
+}
+
+.git-gutter-mod {
+  border-left: 3px solid rgba(0, 200, 255, 0.6);
+  margin-left: 3px;
+}
+
+.git-gutter-del {
+  border-left: 3px solid rgba(255, 69, 58, 0.65);
+  margin-left: 3px;
+}
+
+.monaco-editor .margin {
+  background: transparent !important;
+}
+
+.monaco-editor .minimap-decorations-layer {
+  opacity: 0.5;
+}
+
+/* ─── Notification Transitions ────────────────────────────────────────────── */
+
+.notification-enter {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+
+.notification-enter-active {
+  transform: translateX(0);
+  opacity: 1;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.notification-exit {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.notification-exit-active {
+  transform: translateX(-120%);
+  opacity: 0;
+  transition: all 0.25s ease-in;
+}
