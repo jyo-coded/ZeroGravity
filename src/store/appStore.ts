@@ -119,6 +119,16 @@ interface AppState {
   problemsOpen: boolean
   toggleProblems: () => void
 
+  // ─── Orbital UI v2: floating glass card windows ──────────────────────
+  orbitalCards: Record<string, OrbitalCardState>
+  zTop: number
+  openOrbitalCard: (id: string, defaults?: Partial<OrbitalCardState>) => void
+  closeOrbitalCard: (id: string) => void
+  focusOrbitalCard: (id: string) => void
+  setOrbitalCardRect: (id: string, rect: Partial<Pick<OrbitalCardState, 'x' | 'y' | 'w' | 'h'>>) => void
+  spherePos: { x: number; y: number } | null
+  setSpherePos: (pos: { x: number; y: number }) => void
+
   // ─── Team chat (T1) ──────────────────────────────────────────────────
   teamChat: TeamChatMsg[]
   teamPanelOpen: boolean
@@ -189,6 +199,16 @@ export interface TeamChatMsg {
   text: string
   ts: string
   isSelf: boolean
+}
+
+/** Orbital UI v2 — one floating glass card window */
+export interface OrbitalCardState {
+  open: boolean
+  x: number
+  y: number
+  w: number
+  h: number
+  z: number
 }
 
 /** Per-tab buffer cache — preserves unsaved edits across tab switches */
@@ -350,6 +370,9 @@ export const useAppStore = create<AppState>((set, get) => {
     teamChat: [],
     teamPanelOpen: false,
     teamUnread: 0,
+    orbitalCards: {},
+    zTop: 10,
+    spherePos: null,
     gitBranch: null,
     gitModified: [],
     gitUntracked: [],
@@ -393,6 +416,60 @@ export const useAppStore = create<AppState>((set, get) => {
       }),
 
     toggleProblems: () => set((s) => ({ problemsOpen: !s.problemsOpen })),
+
+    // ─── Orbital UI v2: card windows ────────────────────────────────────────
+    openOrbitalCard: (id, defaults) =>
+      set((s) => {
+        const existing = s.orbitalCards[id]
+        const z = s.zTop + 1
+        // Existing card just re-opens at its last position (user's own layout wins)
+        if (existing) {
+          return { orbitalCards: { ...s.orbitalCards, [id]: { ...existing, open: true, z } }, zTop: z }
+        }
+        // New card: cascade off the intended slot if it already collides
+        // with another open card, so nothing ever spawns hidden underneath.
+        let x = defaults?.x ?? 200
+        let y = defaults?.y ?? 120
+        const w = defaults?.w ?? 320
+        const h = defaults?.h ?? 320
+        const openCards = Object.values(s.orbitalCards).filter((c) => c.open)
+        const collides = (cx: number, cy: number) =>
+          openCards.some((c) => Math.abs(c.x - cx) < 36 && Math.abs(c.y - cy) < 36)
+        let tries = 0
+        while (collides(x, y) && tries < 12) {
+          x += 28; y += 24; tries += 1
+        }
+        // Clamp inside the viewport so cascades don't wander off-screen
+        const vw = typeof window !== 'undefined' ? window.innerWidth : 1200
+        const vh = typeof window !== 'undefined' ? window.innerHeight : 720
+        x = Math.min(Math.max(x, 12), Math.max(12, vw - w - 12))
+        y = Math.min(Math.max(y, 44), Math.max(44, vh - h - 12))
+        return { orbitalCards: { ...s.orbitalCards, [id]: { open: true, x, y, w, h, z } }, zTop: z }
+      }),
+
+    closeOrbitalCard: (id) =>
+      set((s) => {
+        const existing = s.orbitalCards[id]
+        if (!existing) return s
+        return { orbitalCards: { ...s.orbitalCards, [id]: { ...existing, open: false } } }
+      }),
+
+    focusOrbitalCard: (id) =>
+      set((s) => {
+        const existing = s.orbitalCards[id]
+        if (!existing || existing.z === s.zTop) return s
+        const z = s.zTop + 1
+        return { orbitalCards: { ...s.orbitalCards, [id]: { ...existing, z } }, zTop: z }
+      }),
+
+    setOrbitalCardRect: (id, rect) =>
+      set((s) => {
+        const existing = s.orbitalCards[id]
+        if (!existing) return s
+        return { orbitalCards: { ...s.orbitalCards, [id]: { ...existing, ...rect } } }
+      }),
+
+    setSpherePos: (pos) => set({ spherePos: pos }),
 
     // ─── Team chat (T1) ─────────────────────────────────────────────────────
     toggleTeamPanel: () => set((s) => ({ teamPanelOpen: !s.teamPanelOpen, teamUnread: s.teamPanelOpen ? s.teamUnread : 0 })),

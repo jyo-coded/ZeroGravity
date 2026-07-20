@@ -21,7 +21,7 @@
   }
 
   body {
-    background-color: #000408;
+    background-color: #010308;
     color: #E2E8F0;
     overflow: hidden;
     height: 100vh;
@@ -267,7 +267,7 @@
   }
 
   .bg-gradient-void {
-    background: radial-gradient(ellipse at 50% 50%, #000408 0%, #000204 100%);
+    background: radial-gradient(ellipse at 50% 50%, #010308 0%, #000204 100%);
   }
 
   .drag-region {
@@ -383,6 +383,279 @@
   0%   { transform: scale(1); opacity: 0.6; }
   100% { transform: scale(2.5); opacity: 0; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Orbital UI v2 — glass cards, discs, sphere, cosmos
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* The one glass surface. backdrop blur + saturate so stars show through. */
+.glasscard-surface {
+  position: relative;
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(24, 38, 70, 0.42), rgba(8, 14, 34, 0.55));
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(140, 200, 255, 0.16);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 8, 0.55),
+    0 4px 18px rgba(0, 0, 10, 0.4),
+    inset 0 1px 0 rgba(200, 235, 255, 0.10);
+}
+
+/* Diagonal glossy sheen, drifting slowly (transform-only = cheap) */
+.glasscard-surface::before {
+  content: '';
+  position: absolute;
+  inset: -60% -30%;
+  background: linear-gradient(
+    115deg,
+    transparent 42%,
+    rgba(190, 230, 255, 0.055) 48%,
+    rgba(190, 230, 255, 0.10) 50%,
+    rgba(190, 230, 255, 0.055) 52%,
+    transparent 58%
+  );
+  pointer-events: none;
+  animation: sheenDrift 14s ease-in-out infinite;
+}
+
+@keyframes sheenDrift {
+  0%, 100% { transform: translateX(-8%) translateY(-4%); }
+  50%      { transform: translateX(8%) translateY(4%); }
+}
+
+/* ── Utility discs: concentric arc rings anchored off-canvas ─────────── */
+.orbital-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(120, 190, 255, 0.14);
+  box-shadow:
+    0 0 40px rgba(0, 160, 255, 0.06),
+    inset 0 0 60px rgba(0, 160, 255, 0.05);
+  pointer-events: none;
+}
+
+.disc-icon {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform;
+  z-index: 5;
+}
+
+.disc-icon:hover {
+  transform: translateY(-4px) scale(1.06);
+}
+
+/* ── The wheel BAND: a genuinely thick luminous arc, not a hairline.
+   This is the element that read as invisible in the last two builds.
+   Width/color/glow are set inline (they scale with radius + disc family). */
+.wheel-band {
+  position: absolute;
+  border-radius: 50%;
+  border-style: solid;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Crisp concentric detail lines drawn over the band */
+.wheel-line {
+  position: absolute;
+  border-radius: 50%;
+  border-width: 1.5px;
+  border-style: solid;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Icon badge — glowing circular node, size set inline (ramps along the arc) */
+.disc-icon-bubble {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  background:
+    radial-gradient(circle at 32% 28%, var(--hue-light, rgba(120, 190, 255, 0.42)) 0%, transparent 58%),
+    linear-gradient(155deg, rgba(20, 34, 70, 0.6), rgba(4, 10, 28, 0.82));
+  border: 1px solid var(--hue-border, rgba(140, 200, 255, 0.45));
+  box-shadow:
+    0 0 22px var(--hue-glow, rgba(0, 170, 255, 0.35)),
+    0 6px 18px rgba(0, 0, 10, 0.5),
+    inset 0 1px 0 rgba(220, 240, 255, 0.22);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: box-shadow 0.24s ease, transform 0.24s ease;
+}
+
+.disc-icon:hover .disc-icon-bubble {
+  box-shadow:
+    0 0 40px var(--hue-glow, rgba(0, 190, 255, 0.6)),
+    0 0 80px var(--hue-glow, rgba(0, 190, 255, 0.22)),
+    inset 0 1px 0 rgba(220, 240, 255, 0.3);
+}
+
+.disc-icon:hover .disc-icon-bubble {
+  box-shadow: 0 0 26px rgba(0, 190, 255, 0.45), inset 0 1px 0 rgba(210, 240, 255, 0.25);
+}
+
+.disc-icon-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: rgba(205, 228, 255, 0.85);
+  text-shadow: 0 2px 10px rgba(0, 0, 10, 0.8);
+  white-space: nowrap;
+}
+
+.disc-icon-sublabel {
+  margin-top: 2px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: rgba(160, 210, 255, 0.58);
+  text-shadow: 0 2px 10px rgba(0, 0, 10, 0.8);
+  white-space: nowrap;
+}
+
+.orbital-panel-adapter > .glass-panel {
+  width: 100% !important;
+  height: 100%;
+  border-right: 0 !important;
+  background: transparent;
+}
+
+/* The old mask-image here faded the top 10% of the card to transparent —
+   on a 430px card that's 43px, which ERASED the 36px header entirely (no
+   title, no gear, no close button). The soften-the-top effect belongs on the
+   message list only (see .mission-hologram-body), never on the card chrome.
+   This card also needs real opacity: it holds a readable conversation. */
+.orbital-hologram {
+  background: linear-gradient(160deg, rgba(20, 33, 66, 0.90), rgba(7, 12, 30, 0.94));
+  border: 1px solid rgba(150, 205, 255, 0.28);
+  box-shadow:
+    0 24px 70px rgba(0, 0, 8, 0.65),
+    0 0 40px rgba(70, 150, 255, 0.10),
+    inset 0 1px 0 rgba(200, 235, 255, 0.12);
+}
+
+.mission-hologram-body .mission-control {
+  width: 100%;
+  background: transparent;
+  border-left: 0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.mission-hologram-body .mission-control::before {
+  content: none;
+}
+
+.mission-hologram-body .mission-control > div:nth-child(3) {
+  mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.45) 8%, black 26%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.45) 8%, black 26%, black 100%);
+}
+
+/* ── Mission sphere: pure CSS/DOM — deliberately NOT WebGL ───────────── */
+.mission-sphere {
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(190, 235, 255, 0.85) 0%, rgba(110, 180, 255, 0.55) 18%, rgba(40, 90, 200, 0.55) 45%, rgba(12, 24, 70, 0.9) 78%, rgba(4, 8, 30, 0.98) 100%),
+    radial-gradient(circle at 70% 75%, rgba(90, 60, 220, 0.35) 0%, transparent 55%);
+  box-shadow:
+    0 0 34px rgba(90, 170, 255, 0.55),
+    0 0 90px rgba(60, 130, 255, 0.30),
+    0 0 160px rgba(50, 110, 255, 0.16),
+    inset -8px -10px 30px rgba(0, 0, 30, 0.6),
+    inset 4px 6px 18px rgba(200, 240, 255, 0.25);
+  animation: sphereBreathe 4.5s ease-in-out infinite;
+  cursor: grab;
+}
+
+.mission-sphere:active { cursor: grabbing; }
+
+@keyframes sphereBreathe {
+  0%, 100% {
+    box-shadow:
+      0 0 34px rgba(90, 170, 255, 0.55), 0 0 90px rgba(60, 130, 255, 0.30),
+      0 0 160px rgba(50, 110, 255, 0.16),
+      inset -8px -10px 30px rgba(0, 0, 30, 0.6), inset 4px 6px 18px rgba(200, 240, 255, 0.25);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow:
+      0 0 46px rgba(110, 190, 255, 0.7), 0 0 120px rgba(70, 140, 255, 0.4),
+      0 0 200px rgba(50, 110, 255, 0.22),
+      inset -8px -10px 30px rgba(0, 0, 30, 0.6), inset 4px 6px 18px rgba(200, 240, 255, 0.3);
+    transform: scale(1.03);
+  }
+}
+
+/* Saturn-esque base rings around the sphere (decorative, very low opacity) */
+.sphere-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(140, 200, 255, 0.18);
+  transform: rotateX(72deg);
+  pointer-events: none;
+}
+
+/* Hologram light beam: sphere → chat card */
+.holo-beam {
+  position: absolute;
+  background: linear-gradient(to top, rgba(120, 200, 255, 0.35), rgba(120, 200, 255, 0.06) 55%, transparent);
+  clip-path: polygon(38% 100%, 62% 100%, 100% 0%, 0% 0%);
+  filter: blur(1px);
+  pointer-events: none;
+  animation: beamPulse 4.5s ease-in-out infinite;
+}
+
+@keyframes beamPulse {
+  0%, 100% { opacity: 0.75; }
+  50%      { opacity: 1; }
+}
+
+/* ── Shooting stars ──────────────────────────────────────────────────── */
+.shooting-star {
+  position: absolute;
+  width: 130px;
+  height: 1.5px;
+  background: linear-gradient(to left, rgba(230, 245, 255, 0.95), rgba(160, 210, 255, 0.4) 30%, transparent);
+  border-radius: 2px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes shoot {
+  0%   { transform: translate3d(0, 0, 0) rotate(var(--shoot-angle, -18deg)); opacity: 0; }
+  4%   { opacity: 1; }
+  16%  { transform: translate3d(var(--shoot-dx, -60vw), var(--shoot-dy, 24vh), 0) rotate(var(--shoot-angle, -18deg)); opacity: 0; }
+  100% { transform: translate3d(var(--shoot-dx, -60vw), var(--shoot-dy, 24vh), 0) rotate(var(--shoot-angle, -18deg)); opacity: 0; }
+}
+
+/* ── Custom title bar ────────────────────────────────────────────────── */
+.orbital-titlebar {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: rgba(6, 10, 26, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(140, 200, 255, 0.08);
+  user-select: none;
+}
+
+.traffic-btn {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.traffic-btn:hover { filter: brightness(1.25); transform: scale(1.1); }
 
 /* ─── Monaco Editor Overrides ─────────────────────────────────────────────── */
 
