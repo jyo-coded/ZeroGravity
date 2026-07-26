@@ -173,6 +173,13 @@ pub async fn safely_open_file(path_str: &str) -> Result<String> {\n\
 ```";
 
 impl ModelClient {
+    /// The shared HTTP client. Exposed so sibling modules reuse its configured
+    /// connect/read timeouts rather than constructing one with different
+    /// failure behaviour.
+    pub fn http(&self) -> &Client {
+        &self.http
+    }
+
     pub fn new() -> Self {
         // Timeouts are what stop a wedged provider from hanging the whole app
         // forever. We deliberately do NOT set a total-request timeout — that

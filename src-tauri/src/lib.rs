@@ -97,6 +97,7 @@ pub fn run() {
             git::git_file_diff_text,
             completion::ai_complete,
             completion::test_model,
+            completion::list_models,
             agent::ai_raw,
         ])
         // Kill every PTY when the app exits. Without this, closing the window

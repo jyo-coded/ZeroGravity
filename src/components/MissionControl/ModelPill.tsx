@@ -11,7 +11,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
-import { GripVertical, X, Play, Plus, Activity } from 'lucide-react'
+import { GripVertical, X, Play, Plus, Activity, RefreshCw } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import * as api from '../../lib/api'
 import { invoke } from '@tauri-apps/api/core'
@@ -33,6 +33,28 @@ export function ModelPill() {
   // bad key now and discovering it mid-demo when the rotation quietly falls
   // through to a backup.
   const [probe, setProbe] = useState<Record<string, string>>({})
+
+  // Live model list. Hardcoded lists rot — providers retire names on their own
+  // schedule and the failure only shows at the moment of use. Asking the
+  // provider is the only answer that stays correct.
+  const [live, setLive] = useState<string[] | null>(null)
+  const [listing, setListing] = useState(false)
+
+  const refreshModels = async () => {
+    setListing(true)
+    try {
+      const ids = await invoke<string[]>('list_models', {
+        config: { ...modelConfig, model_name: addModel || modelConfig?.model_name },
+      })
+      setLive(ids)
+      setProbe((p) => ({ ...p, __list: '' }))
+    } catch (e) {
+      setProbe((p) => ({ ...p, __list: String(e).slice(0, 140) }))
+      setLive([])
+    } finally {
+      setListing(false)
+    }
+  }
 
   const testModel = async (cfg: ModelConfig) => {
     const id = `${cfg.provider}:${cfg.model_name}`
@@ -135,6 +157,36 @@ export function ModelPill() {
                   </button>
                 </div>
                 <ProbeResult result={probe[`${modelConfig.provider}:${modelConfig.model_name}`]} />
+
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <button
+                    onClick={refreshModels}
+                    disabled={listing}
+                    className="text-[11px] font-mono text-text-muted hover:text-cyan flex items-center gap-1 disabled:opacity-50"
+                    title="Ask this provider which models the key can use"
+                  >
+                    <RefreshCw size={10} />
+                    {listing ? 'checking…' : 'available models'}
+                  </button>
+                </div>
+                {probe.__list && (
+                  <p className="text-[11px] font-mono mt-1 break-words" style={{ color: 'var(--danger)' }}>
+                    {probe.__list}
+                  </p>
+                )}
+                {live && live.length > 0 && (
+                  <select
+                    value={modelConfig.model_name}
+                    onChange={(e) => setModelConfig({ ...modelConfig, model_name: e.target.value, label: e.target.value })}
+                    className="w-full mt-1.5 text-[12px] font-mono py-1 px-1.5 rounded outline-none"
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '0.5px solid rgba(255,255,255,0.1)', color: '#94A3B8' }}
+                  >
+                    {live.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                )}
+                {live && live.length === 0 && !probe.__list && (
+                  <p className="text-[11px] font-mono mt-1 text-text-muted">Provider returned no models.</p>
+                )}
               </div>
 
               {/* Rotation list */}

@@ -176,3 +176,65 @@ pub async fn test_model(
         Err(e) => Err(e.to_string()),
     }
 }
+
+/// Ask a provider which models this key can actually use.
+///
+/// Hardcoded model lists rot: providers retire names on their own schedule, and
+/// the failure ("model is no longer available to new users") only appears at the
+/// moment of use. Every OpenAI-compatible provider — including Gemini's compat
+/// layer — exposes GET /models, so the honest answer is to ask rather than guess.
+#[tauri::command]
+pub async fn list_models(
+    config: crate::types::ModelConfig,
+    state: State<'_, AppState>,
+) -> Result<Vec<String>, String> {
+    let base = match config.provider.as_str() {
+        "google" => "https://generativelanguage.googleapis.com/v1beta/openai".to_string(),
+        "groq" => "https://api.groq.com/openai/v1".to_string(),
+        "openai" => "https://api.openai.com/v1".to_string(),
+        "openrouter" => "https://openrouter.ai/api/v1".to_string(),
+        _ => config
+            .base_url
+            .clone()
+            .ok_or("This provider needs a base URL before its models can be listed")?,
+    };
+
+    let url = format!("{}/models", base.trim_end_matches('/'));
+    let mut req = state.model_client.http().get(&url);
+    if let Some(key) = config.api_key.as_deref().filter(|k| !k.is_empty()) {
+        req = req.bearer_auth(key);
+    }
+
+    let resp = req.send().await.map_err(|e| format!("could not reach {url}: {e}"))?;
+    let status = resp.status();
+    let body: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("provider returned an unreadable model list: {e}"))?;
+
+    if !status.is_success() {
+        let msg = body
+            .get("error")
+            .and_then(|e| e.get("message"))
+            .and_then(|m| m.as_str())
+            .unwrap_or("unknown error");
+        return Err(format!("{status}: {msg}"));
+    }
+
+    let mut ids: Vec<String> = body
+        .get("data")
+        .and_then(|d| d.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|m| m.get("id").and_then(|i| i.as_str()))
+                // Gemini returns fully-qualified ids like "models/gemini-3.5-flash";
+                // the chat endpoint accepts the bare name.
+                .map(|id| id.trim_start_matches("models/").to_string())
+                .collect()
+        })
+        .unwrap_or_default();
+
+    ids.sort();
+    ids.dedup();
+    Ok(ids)
+}

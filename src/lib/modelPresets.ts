@@ -34,7 +34,12 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     value: 'google',
     label: 'Google Gemini — recommended, free',
-    models: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash'],
+    // 'gemini-flash-latest' is an ALIAS that tracks whatever the current Flash
+    // model is. Pinning a version (gemini-2.5-flash) is what broke: Google
+    // retired the 2.5 series and pinned names stop working for new keys with no
+    // warning. The alias survives those transitions; use "Refresh" in the model
+    // picker to see exactly what a key can access today.
+    models: ['gemini-flash-latest', 'gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-pro-latest'],
     needsKey: true,
     placeholder: 'AIza...',
     keyUrl: 'https://aistudio.google.com/apikey',
@@ -115,7 +120,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
 ]
 
 export const DEFAULT_PROVIDER: ModelProvider = 'google'
-export const DEFAULT_MODEL = 'gemini-2.5-flash'
+export const DEFAULT_MODEL = 'gemini-flash-latest'
 
 export const presetFor = (p: ModelProvider): ProviderPreset =>
   PROVIDER_PRESETS.find((x) => x.value === p) ?? PROVIDER_PRESETS[PROVIDER_PRESETS.length - 1]
@@ -142,7 +147,7 @@ export function recommendedChain(keys: {
       provider: 'google',
       model_name: DEFAULT_MODEL,
       api_key: keys.gemini.trim(),
-      label: 'Gemini 2.5 Flash',
+      label: 'Gemini Flash',
     })
   }
   if (keys.cerebras?.trim()) {
