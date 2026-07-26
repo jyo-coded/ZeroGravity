@@ -68,6 +68,10 @@ petgraph = { version = "0.6", features = ["serde-1"] }
 # Regex-based code parsing
 regex = "1"
 
+# Integrated terminal — real PTY (pseudo-terminal), not a fake shell wrapper.
+portable-pty = "0.8"
+base64 = "0.22"
+
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]

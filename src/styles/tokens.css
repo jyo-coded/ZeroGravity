@@ -1,0 +1,159 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   0G — Design tokens
+   ───────────────────────────────────────────────────────────────────────────
+   One source of truth for type, space, color, radius, elevation, and motion.
+   The cosmic identity lives in MATERIAL (color, glow, atmosphere), never in
+   STRUCTURE — structure is a deterministic professional editor layout.
+
+   Rules this file enforces:
+   • No UI text below 11px. Default UI text is 13px, body/editor 14px.
+   • Elevation is declared ONCE per surface: a border OR a shadow, not both.
+   • Shadows carry offset + blur. A zero-offset colored halo is not depth.
+   • Monospace is for code, paths, and measurements — never as decoration.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Type ──────────────────────────────────────────────────────────────
+     Scale is dense (this is a tool, used for hours) but never illegible.
+     Every step is a real jump so hierarchy is obvious without color. */
+  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-code: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
+
+  --text-2xs: 11px;   /* badges, counters — the floor, used sparingly */
+  --text-xs: 12px;    /* status bar, secondary metadata */
+  --text-sm: 13px;    /* DEFAULT UI: tabs, tree, menus, buttons, labels */
+  --text-base: 14px;  /* body copy, chat messages, editor */
+  --text-lg: 16px;    /* panel titles, section heads */
+  --text-xl: 20px;    /* dialog titles */
+  --text-2xl: 28px;   /* empty-state / onboarding headlines */
+
+  --leading-tight: 1.25;
+  --leading-snug: 1.4;
+  --leading-normal: 1.6;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* Tracking floor is -0.04em; -0.02em reads better at UI sizes. */
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+
+  /* ── Space ─────────────────────────────────────────────────────────────
+     4px base grid. Tight inside a group, generous between groups. */
+  --space-0: 0;
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 12px;
+  --space-6: 16px;
+  --space-7: 20px;
+  --space-8: 24px;
+  --space-9: 32px;
+  --space-10: 40px;
+  --space-11: 48px;
+
+  /* ── Radius ────────────────────────────────────────────────────────────
+     Cards 12–14px. Small controls get pills; large surfaces never do. */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-pill: 999px;
+
+  /* ── Color: ground ─────────────────────────────────────────────────────
+     Deep space, but built as a real neutral ramp so panels read as distinct
+     planes instead of one flat black. Blue-shifted, never pure gray. */
+  --bg-base: #05070E;      /* app ground — the void behind everything */
+  --bg-surface: #0A0D18;   /* panels: sidebar, bottom panel, AI panel */
+  --bg-editor: #070A13;    /* the code surface itself, slightly deeper */
+  --bg-raised: #121829;    /* inputs, hover rows, inactive tabs */
+  --bg-overlay: #171E33;   /* command palette, menus, dialogs */
+  --bg-selected: rgba(56, 189, 248, 0.14);
+  --bg-hover: rgba(160, 200, 255, 0.06);
+
+  /* ── Color: line ───────────────────────────────────────────────────────*/
+  --border-subtle: rgba(150, 190, 255, 0.07);
+  --border-default: rgba(150, 190, 255, 0.13);
+  --border-strong: rgba(150, 190, 255, 0.22);
+  --border-focus: rgba(56, 189, 248, 0.65);
+
+  /* ── Color: text ───────────────────────────────────────────────────────
+     Contrast-checked against --bg-surface (#0A0D18):
+       primary   ~14.8:1   secondary ~8.1:1   muted ~5.2:1  (all pass 4.5:1)
+     --text-faint is decorative only and never carries meaning alone. */
+  --text-primary: #E7EDF8;
+  --text-secondary: #AAB8CE;
+  --text-muted: #7E8CA4;
+  --text-faint: #55607A;
+
+  /* ── Color: accent ─────────────────────────────────────────────────────
+     Provenance encoding — this is product meaning, not decoration:
+       CYAN   = human authorship / the user
+       VIOLET = AI authorship / the agent
+     Every diff, ledger entry, and cursor uses this pairing consistently. */
+  --accent: #38BDF8;
+  --accent-hover: #5CCBFA;
+  --accent-dim: rgba(56, 189, 248, 0.16);
+  --accent-line: rgba(56, 189, 248, 0.42);
+
+  --ai: #A78BFA;
+  --ai-hover: #BBA2FC;
+  --ai-dim: rgba(167, 139, 250, 0.16);
+  --ai-line: rgba(167, 139, 250, 0.42);
+
+  /* ── Color: state ──────────────────────────────────────────────────────*/
+  --success: #3FB950;
+  --success-dim: rgba(63, 185, 80, 0.15);
+  --warning: #D29922;
+  --warning-dim: rgba(210, 153, 34, 0.15);
+  --danger: #F85149;
+  --danger-dim: rgba(248, 81, 73, 0.15);
+
+  /* Diff colors — used by the AI review surface and the git gutter */
+  --diff-add-bg: rgba(63, 185, 80, 0.13);
+  --diff-add-line: #3FB950;
+  --diff-del-bg: rgba(248, 81, 73, 0.13);
+  --diff-del-line: #F85149;
+
+  /* ── Elevation ─────────────────────────────────────────────────────────
+     Offset + blur, always. Panels use a border instead of a shadow; only
+     things that genuinely float above the workspace get a shadow. */
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.30);
+  --shadow-overlay: 0 4px 12px rgba(0, 0, 0, 0.50), 0 20px 56px rgba(0, 0, 0, 0.45);
+
+  /* ── Motion ────────────────────────────────────────────────────────────
+     Exponential ease-out from an already-visible default. Fast for direct
+     manipulation, slower for surfaces that travel a distance. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-instant: 80ms;
+  --dur-fast: 140ms;
+  --dur-base: 220ms;
+  --dur-slow: 380ms;
+
+  /* ── Layout metrics ────────────────────────────────────────────────────
+     Fixed chrome sizes referenced by both CSS and the layout components so
+     the two can never disagree. */
+  --h-titlebar: 36px;
+  --h-statusbar: 24px;
+  --h-tabbar: 35px;
+  --h-breadcrumbs: 26px;
+  --w-activitybar: 48px;
+  --z-panel: 10;
+  --z-resizer: 20;
+  --z-overlay: 100;
+  --z-palette: 200;
+  --z-toast: 300;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-instant: 0ms;
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+  }
+}

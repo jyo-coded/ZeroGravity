@@ -81,7 +81,7 @@ export function LeftDock({ activeView, onViewChange }: LeftDockProps) {
       >
         <ShieldAlert size={15} />
         {problemCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-0.5 rounded-full flex items-center justify-center text-[8px] font-bold"
+          <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-0.5 rounded-full flex items-center justify-center text-[11px] font-bold"
             style={{ background: 'rgba(255,69,58,0.9)', color: '#000408' }}
           >
             {problemCount > 99 ? '99' : problemCount}
@@ -97,7 +97,7 @@ export function LeftDock({ activeView, onViewChange }: LeftDockProps) {
       >
         <Users size={15} />
         {teamUnread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-0.5 rounded-full flex items-center justify-center text-[8px] font-bold"
+          <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-0.5 rounded-full flex items-center justify-center text-[11px] font-bold"
             style={{ background: 'rgba(0,255,136,0.9)', color: '#000408' }}
           >
             {teamUnread > 99 ? '99' : teamUnread}
@@ -139,7 +139,7 @@ export function LeftDock({ activeView, onViewChange }: LeftDockProps) {
                     initial={{ opacity: 0, x: -4 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -4 }}
-                    className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1 rounded-md bg-card border border-border/40 text-[10px] text-text-secondary font-mono whitespace-nowrap z-50"
+                    className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1 rounded-md bg-card border border-border/40 text-[12px] text-text-secondary font-mono whitespace-nowrap z-50"
                   >
                     {item.label}
                   </motion.div>
@@ -178,7 +178,7 @@ export function LeftDock({ activeView, onViewChange }: LeftDockProps) {
                   <div className="px-3 py-2.5 border-b border-border/50">
                     <div className="flex items-center gap-2">
                       <div
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-void"
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-bold text-void"
                         style={{ backgroundColor: identity.avatar_color }}
                       >
                         {identity.username.slice(0, 2).toUpperCase()}
@@ -202,7 +202,7 @@ export function LeftDock({ activeView, onViewChange }: LeftDockProps) {
         {/* Command palette (A5) */}
         <button
           onClick={() => useAppStore.getState().setQuickOpen('commands')}
-          className="text-[9px] font-mono text-text-muted/40 hover:text-cyan transition-colors mt-1"
+          className="text-[12px] font-mono text-text-muted/40 hover:text-cyan transition-colors mt-1"
           title="Command Palette (Ctrl+Shift+P)"
         >
           ⌘K

@@ -1,9 +1,12 @@
 // Prevents additional console window on Windows in release
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod agent;
 mod changelog;
 mod commands;
+mod completion;
 mod context_scanner;
+mod git;
 mod graph;
 mod lsp;
 mod model;
@@ -11,9 +14,12 @@ mod network;
 mod orchestrator;
 mod parser;
 mod rotation;
+mod terminal;
 mod types;
 
 use commands::AppState;
+use tauri::Manager; // brings `.state()` into scope for the window-event hook
+use terminal::TerminalState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -27,6 +33,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_shell::init())
         .manage(AppState::new())
+        .manage(TerminalState::default())
         .invoke_handler(tauri::generate_handler![
             commands::save_identity,
             commands::load_identity,
@@ -73,7 +80,31 @@ pub fn run() {
             commands::get_network_info,
             commands::connect_peer,
             commands::pick_folder,
+            terminal::pty_spawn,
+            terminal::pty_write,
+            terminal::pty_resize,
+            terminal::pty_kill,
+            terminal::pty_list,
+            git::git_status_full,
+            git::git_stage,
+            git::git_unstage,
+            git::git_discard,
+            git::git_commit,
+            git::git_log,
+            git::git_branches,
+            git::git_checkout,
+            git::git_blame,
+            git::git_file_diff_text,
+            completion::ai_complete,
+            agent::ai_raw,
         ])
+        // Kill every PTY when the app exits. Without this, closing the window
+        // leaves orphaned shell processes running with no terminal attached.
+        .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                terminal::shutdown_all(&window.state::<TerminalState>());
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running 0G application");
 }

@@ -94,19 +94,19 @@ function NotificationToast({ notif, onDismiss }: ToastProps) {
             border: `0.5px solid ${colors.border}`,
           }}
         >
-          <span className="text-[9px] font-semibold" style={{ color: colors.icon }}>{initials}</span>
+          <span className="text-[12px] font-semibold" style={{ color: colors.icon }}>{initials}</span>
         </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] text-text-primary leading-snug truncate">{notif.message}</p>
+          <p className="text-[12px] text-text-primary leading-snug truncate">{notif.message}</p>
           {notif.detail && (
-            <p className="text-[9px] text-text-secondary mt-0.5 truncate">{notif.detail}</p>
+            <p className="text-[12px] text-text-secondary mt-0.5 truncate">{notif.detail}</p>
           )}
         </div>
 
         {/* Action link */}
-        <span className="text-[9px] shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+        <span className="text-[12px] shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
           style={{ color: '#00C8FF' }}
         >
           diff ↗

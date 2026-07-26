@@ -62,19 +62,19 @@ export function MissionLog() {
     }}>
       {/* ─── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 px-4 py-2 shrink-0">
-        <span className="text-[9px] font-mono tracking-[0.15em] uppercase"
+        <span className="text-[12px] font-mono tracking-[0.15em] uppercase"
           style={{ color: 'rgba(0,200,255,0.5)' }}
         >
           MISSION LOG
         </span>
-        <span className="text-[9px] text-text-muted/30 font-mono">{filtered.length} entries</span>
+        <span className="text-[12px] text-text-muted/30 font-mono">{filtered.length} entries</span>
 
         {/* Filters */}
         <div className="ml-auto flex items-center gap-2">
           <select
             value={changelogFilter.user ?? ''}
             onChange={(e) => setChangelogFilter({ ...changelogFilter, user: e.target.value || undefined })}
-            className="text-[9px] py-0.5 px-1.5 rounded font-mono outline-none"
+            className="text-[12px] py-0.5 px-1.5 rounded font-mono outline-none"
             style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.08)', color: '#64748B' }}
           >
             <option value="">All users</option>
@@ -83,7 +83,7 @@ export function MissionLog() {
           <select
             value={changelogFilter.file ?? ''}
             onChange={(e) => setChangelogFilter({ ...changelogFilter, file: e.target.value || undefined })}
-            className="text-[9px] py-0.5 px-1.5 rounded font-mono outline-none"
+            className="text-[12px] py-0.5 px-1.5 rounded font-mono outline-none"
             style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.08)', color: '#64748B' }}
           >
             <option value="">All files</option>
@@ -96,7 +96,7 @@ export function MissionLog() {
       <div ref={scrollRef} className="flex-1 overflow-x-auto overflow-y-hidden px-4 pb-2">
         <div className="flex items-center gap-2 h-full min-w-max">
           {filtered.length === 0 && (
-            <div className="flex items-center justify-center w-full text-text-muted/40 text-[10px]">
+            <div className="flex items-center justify-center w-full text-text-muted/40 text-[12px]">
               No entries
             </div>
           )}
@@ -133,13 +133,13 @@ export function MissionLog() {
                     opacity: fadeLevel,
                   }}
                 >
-                  <div className="text-[8px] font-medium" style={{ color }}>
+                  <div className="text-[11px] font-medium" style={{ color }}>
                     {entry.changed_by} · {entry.model.split('-').pop()}
                   </div>
-                  <div className="text-[9px] text-text-primary mt-0.5 line-clamp-1">
+                  <div className="text-[12px] text-text-primary mt-0.5 line-clamp-1">
                     {entry.summary}
                   </div>
-                  <div className="text-[8px] text-text-muted mt-0.5">
+                  <div className="text-[11px] text-text-muted mt-0.5">
                     {basename(entry.file)} · {timeAgo(entry.timestamp)}
                   </div>
                 </div>
@@ -158,7 +158,7 @@ export function MissionLog() {
               <div className="w-3 h-3 rounded-full animate-pulse"
                 style={{ backgroundColor: '#00C8FF', boxShadow: '0 0 8px rgba(0,200,255,0.5)' }}
               />
-              <span className="text-[9px] font-mono tracking-widest" style={{ color: '#00C8FF' }}>NOW</span>
+              <span className="text-[12px] font-mono tracking-widest" style={{ color: '#00C8FF' }}>NOW</span>
             </div>
           )}
         </div>

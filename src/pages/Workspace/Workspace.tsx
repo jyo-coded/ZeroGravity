@@ -1,6 +1,6 @@
 /**
  * Workspace - owns restore, network, filesystem, keyboard, and autosave
- * lifecycles. The visual workspace is mounted by OrbitalWorkspaceShell.
+ * lifecycles. The visual workspace is mounted by WorkspaceShell.
  */
 
 import { useState, useEffect } from 'react'
@@ -8,9 +8,11 @@ import { useAppStore } from '../../store/appStore'
 import { listen } from '@tauri-apps/api/event'
 import * as api from '../../lib/api'
 import { handleCrdtMessage, removePeer, isBound } from '../../lib/crdt'
+import { parseEditBlocks } from '../../lib/editProtocol'
+import { useChangeSet } from '../../store/changeSetStore'
 import { StarField } from '../../components/Background/StarField'
 import { NebulaLayer } from '../../components/Background/NebulaLayer'
-import { OrbitalWorkspaceShell } from '../../components/Orbital/OrbitalWorkspaceShell'
+import { WorkspaceShell } from '../../components/Workspace/WorkspaceShell'
 
 export function Workspace() {
   const {
@@ -101,6 +103,55 @@ export function Workspace() {
       }
     })
     return () => { un.then((fn) => fn()).catch(() => {}); clearTimeout(treeTimer) }
+  }, [])
+
+  // AI streaming lifecycle — registered ONCE for the workspace, not per message.
+  // These drive the live token stream and the terminal (complete/error) events.
+  // Handlers read the store via getState() so they never capture stale closures.
+  useEffect(() => {
+    const subs = [
+      listen<{ file: string; delta: string }>('ai_chunk', (e) => {
+        const delta = e.payload?.delta ?? ''
+        if (!delta) return
+        useAppStore.setState((s) => ({ streamingText: (s.streamingText ?? '') + delta }))
+      }),
+      listen<{ file: string; output?: string; error?: string }>('ai_write_complete', (e) => {
+        const output = e.payload?.output ?? ''
+        useAppStore.setState({ isAiWriting: false, streamingText: null })
+
+        // Split the reply into prose and structured edits. Edits become a
+        // reviewable change set instead of code the user has to copy by hand —
+        // this is the difference between an assistant and an editing engine.
+        const { prose, edits } = parseEditBlocks(output)
+        useAppStore.getState().addChatMessage({
+          role: 'assistant',
+          content: prose || (edits.length ? `Proposed changes to ${edits.length} file(s).` : output),
+        })
+
+        if (edits.length > 0) {
+          const s = useAppStore.getState()
+          const intent = [...s.chatHistory].reverse().find((m) => m.role === 'user')?.content?.slice(0, 120)
+            ?? 'AI edit'
+          useChangeSet.getState()
+            .proposeEdits(edits, intent, s.modelConfig?.label ?? 'AI')
+            .catch((err) => s.addNotification({
+              type: 'error', detail: 'Could not prepare review', message: String(err),
+            }))
+        }
+      }),
+      listen<{ error: string }>('ai_write_error', (e) => {
+        // Keep whatever streamed before the failure as a visible partial.
+        const partial = useAppStore.getState().streamingText
+        useAppStore.setState({ isAiWriting: false, streamingText: null })
+        useAppStore.getState().addChatMessage({
+          role: 'assistant',
+          content: partial
+            ? `${partial}\n\n*(interrupted: ${e.payload?.error})*`
+            : `**AI Error:** ${e.payload?.error}`,
+        })
+      }),
+    ]
+    return () => { subs.forEach((p) => p.then((fn) => fn()).catch(() => {})) }
   }, [])
 
   // Route CRDT relay + clean up peer cursors on disconnect.
@@ -215,9 +266,9 @@ export function Workspace() {
   }
 
   return (
-    <OrbitalWorkspaceShell>
+    <WorkspaceShell>
       <AutoSaveDaemon />
-    </OrbitalWorkspaceShell>
+    </WorkspaceShell>
   )
 }
 

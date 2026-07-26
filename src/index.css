@@ -1,3 +1,6 @@
+@import './styles/tokens.css';
+@import './styles/workspace.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -214,26 +217,11 @@
     box-shadow: 0 0 12px rgba(0, 200, 255, 0.15);
   }
 
-  /* Mission Control (chat panel) — matches SVG styling */
+  /* Mission Control (AI chat) — fills its GlassCard; the card owns the glass surface. */
   .mission-control {
-    @apply flex flex-col h-full;
-    width: 364px;
-    background: rgba(4, 8, 20, 0.78);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border-left: 2px solid rgba(0, 200, 255, 0.5);
+    @apply flex flex-col h-full w-full;
+    background: transparent;
     position: relative;
-  }
-
-  .mission-control::before {
-    content: '';
-    position: absolute;
-    left: -8px;
-    top: 0;
-    bottom: 0;
-    width: 16px;
-    background: radial-gradient(ellipse at left, rgba(0, 200, 255, 0.15) 0%, transparent 70%);
-    pointer-events: none;
   }
 
   /* Status bar */
@@ -539,23 +527,6 @@
     0 24px 70px rgba(0, 0, 8, 0.65),
     0 0 40px rgba(70, 150, 255, 0.10),
     inset 0 1px 0 rgba(200, 235, 255, 0.12);
-}
-
-.mission-hologram-body .mission-control {
-  width: 100%;
-  background: transparent;
-  border-left: 0;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-.mission-hologram-body .mission-control::before {
-  content: none;
-}
-
-.mission-hologram-body .mission-control > div:nth-child(3) {
-  mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.45) 8%, black 26%, black 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.45) 8%, black 26%, black 100%);
 }
 
 /* ── Mission sphere: pure CSS/DOM — deliberately NOT WebGL ───────────── */

@@ -283,7 +283,7 @@ export function FloatingCards() {
                       border: '0.5px solid rgba(255,255,255,0.06)',
                     }}
                   >
-                    <span className={`text-[10px] font-mono truncate max-w-[120px] ${isActiveTab ? 'text-cyan' : 'text-text-muted group-hover:text-text-secondary'}`}>
+                    <span className={`text-[12px] font-mono truncate max-w-[120px] ${isActiveTab ? 'text-cyan' : 'text-text-muted group-hover:text-text-secondary'}`}>
                       {basename(tab)}
                     </span>
                     {tabDirty && <div className="w-1.5 h-1.5 rounded-full bg-orange shrink-0" />}
@@ -359,7 +359,7 @@ export function FloatingCards() {
                       style={{ background: 'rgba(0,200,255,0.1)', border: '0.5px solid rgba(0,200,255,0.3)' }}
                     >
                       <Loader2 size={10} className="animate-spin text-cyan" />
-                      <span className="text-[10px] font-mono text-cyan">AI Writing</span>
+                      <span className="text-[12px] font-mono text-cyan">AI Writing</span>
                     </div>
                   )}
 
@@ -399,7 +399,7 @@ export function FloatingCards() {
                   <div className="px-4 py-1.5"
                     style={{ background: 'rgba(255,165,0,0.05)', borderBottom: '1px solid rgba(255,165,0,0.1)' }}
                   >
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-orange">
+                    <span className="text-[12px] font-mono uppercase tracking-wider text-orange">
                       Read-only binary preview
                     </span>
                   </div>
@@ -416,7 +416,7 @@ export function FloatingCards() {
                       onChange={(val) => setActiveFileContent(val ?? '')}
                       onMount={handleEditorMount}
                       theme="vs-dark"
-                      loading={<span className="text-[11px] font-mono text-text-muted animate-pulse">Loading editor…</span>}
+                      loading={<span className="text-[12px] font-mono text-text-muted animate-pulse">Loading editor…</span>}
                       options={{
                         readOnly: isAiWriting || activeFileIsBinary,
                         domReadOnly: activeFileIsBinary,
@@ -436,7 +436,7 @@ export function FloatingCards() {
                       <div className="flex items-center gap-2 px-3 h-7 shrink-0"
                         style={{ borderBottom: '1px solid rgba(0,200,255,0.08)', background: 'rgba(0,200,255,0.03)' }}
                       >
-                        <span className="text-[10px] font-mono text-text-secondary truncate flex-1" title={splitFile}>
+                        <span className="text-[12px] font-mono text-text-secondary truncate flex-1" title={splitFile}>
                           {basename(splitFile)}
                         </span>
                         {tabCache[splitFile].content !== tabCache[splitFile].savedContent && (
@@ -487,13 +487,13 @@ export function FloatingCards() {
                 <div className="flex items-center justify-between px-4 h-8 shrink-0"
                   style={{ borderTop: '1px solid rgba(0,200,255,0.08)' }}
                 >
-                  <div className="flex items-center gap-3 text-[10px] font-mono text-text-muted">
+                  <div className="flex items-center gap-3 text-[12px] font-mono text-text-muted">
                     <span>Ln {cursorPos.line}, Col {cursorPos.col}</span>
                     <span className="uppercase">{activeFileIsBinary ? 'binary' : language}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {isDirty && (
-                      <span className="text-[10px] font-mono text-orange px-2 py-0.5 rounded-full"
+                      <span className="text-[12px] font-mono text-orange px-2 py-0.5 rounded-full"
                         style={{ background: 'rgba(255,165,0,0.08)', border: '0.5px solid rgba(255,165,0,0.3)' }}
                       >
                         unsaved
@@ -540,9 +540,9 @@ export function FloatingCards() {
               }}
             >
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-[10px] font-mono text-text-muted truncate">{basename(rf.path)}</span>
+                <span className="text-[12px] font-mono text-text-muted truncate">{basename(rf.path)}</span>
                 <div className="ml-auto flex items-center gap-1">
-                  <div className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold"
+                  <div className="w-4 h-4 rounded-full flex items-center justify-center text-[11px] font-bold"
                     style={{ backgroundColor: rf.color, color: '#000408' }}
                   >
                     {rf.user.slice(0, 1).toUpperCase()}
@@ -587,7 +587,7 @@ export function FloatingCards() {
             onClick={() => setIsCreating(true)}
           >
             <Plus size={16} className="text-cyan/30 group-hover:text-cyan/60 transition-colors" />
-            <span className="text-[9px] font-mono text-cyan/25 group-hover:text-cyan/50 transition-colors">
+            <span className="text-[12px] font-mono text-cyan/25 group-hover:text-cyan/50 transition-colors">
               new file
             </span>
           </motion.div>
@@ -622,11 +622,11 @@ export function FloatingCards() {
                     className="w-full bg-void/50 text-xs text-text-primary placeholder-text-dim font-mono px-3 py-2 rounded-lg border border-border/40 focus:border-cyan/30 outline-none"
                   />
                   <div className="flex items-center gap-2 mt-3">
-                    <button type="submit" className="btn-beam text-[10px] px-3 py-1">Create</button>
+                    <button type="submit" className="btn-beam text-[12px] px-3 py-1">Create</button>
                     <button
                       type="button"
                       onClick={() => { setNewFilePath(''); setIsCreating(false) }}
-                      className="text-[10px] text-text-muted hover:text-text-primary transition-colors"
+                      className="text-[12px] text-text-muted hover:text-text-primary transition-colors"
                     >
                       Cancel
                     </button>

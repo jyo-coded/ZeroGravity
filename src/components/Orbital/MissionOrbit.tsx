@@ -1,16 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, useMotionValue } from 'framer-motion'
-import { Radio, Settings, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { Radio, Settings, SlidersHorizontal } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
-import { MissionControl } from '../MissionControl/MissionControl'
 
 export function MissionOrbit() {
   const {
     spherePos, setSpherePos, modelConfig, rotationList, setModelConfig,
-    collaborators, setQuickOpen,
+    collaborators, setQuickOpen, openOrbitalCard,
   } = useAppStore()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [contextScope, setContextScope] = useState('Project')
+
+  // The sphere is the AI launcher — clicking it opens (or re-focuses) the Mission Control
+  // chat, which now lives in its own proper resizable card instead of being glued above.
+  const openAi = () =>
+    openOrbitalCard('ai', { x: Math.max(24, window.innerWidth - 432), y: 84, w: 404, h: 560 })
 
   // Sphere is the anchor for the whole assembly. Its Y must leave room for the
   // card stack ABOVE it (card 430 + 18 gap + titlebar clearance ≈ 500), and its
@@ -75,33 +79,31 @@ export function MissionOrbit() {
         <button
           type="button"
           className="mission-sphere absolute inset-0 flex items-center justify-center"
-          onClick={() => setSettingsOpen((v) => !v)}
-          title="Mission settings"
+          onClick={openAi}
+          title="Open Mission Control (AI)"
         >
           <Radio size={24} className="text-[#c7d8ff]/85" strokeWidth={1.6} />
         </button>
 
         <div className="holo-particles" />
-        {/* Short beam: from card bottom (−16) into the sphere top */}
-        <div className="holo-beam left-[-94px] top-[-16px] w-[260px] h-[60px]" />
 
-        {/* Card: 400×430, bottom edge 16px above the sphere → top = −(430+16) */}
-        <div className="orbital-hologram absolute left-[-164px] top-[-446px] w-[400px] h-[430px] glasscard-surface overflow-hidden">
-          <div className="flex items-center gap-2 h-9 px-3" style={{ borderBottom: '1px solid rgba(160,220,255,0.10)' }}>
-            <Sparkles size={14} className="text-cyan" />
-            <span className="text-[11px] font-mono text-text-primary">Mission Control</span>
-          </div>
-          <div className="h-[calc(100%-36px)] mission-hologram-body">
-            <MissionControl />
-          </div>
-        </div>
+        {/* Settings gear — tucked on the sphere, so the chat can live in its own card */}
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setSettingsOpen((v) => !v) }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="absolute -right-1.5 -bottom-1.5 z-10 grid h-6 w-6 place-items-center rounded-full border border-white/15 bg-[#071126]/90 text-text-muted backdrop-blur-md transition hover:border-cyan/40 hover:text-cyan"
+          title="Mission settings"
+        >
+          <Settings size={12} />
+        </button>
 
         {settingsOpen && (
           /* Beside the sphere, clear of the card above it */
           <div className="absolute left-[88px] top-[-8px] w-[264px] glasscard-surface p-3 mission-settings-popover">
             <div className="flex items-center gap-2 mb-3">
               <Settings size={14} className="text-cyan" />
-              <span className="text-[11px] font-mono text-text-primary">Mission Settings</span>
+              <span className="text-[12px] font-mono text-text-primary">Mission Settings</span>
               <button
                 className="ml-auto text-text-muted hover:text-text-primary"
                 onClick={() => setSettingsOpen(false)}
@@ -111,14 +113,14 @@ export function MissionOrbit() {
               </button>
             </div>
 
-            <label className="block text-[9px] font-mono text-text-muted mb-1">Model</label>
+            <label className="block text-[12px] font-mono text-text-muted mb-1">Model</label>
             <select
               value={modelConfig?.label ?? ''}
               onChange={(e) => {
                 const next = modelOptions.find((m) => m.label === e.target.value)
                 if (next) setModelConfig(next)
               }}
-              className="w-full rounded-md bg-white/5 border border-white/10 px-2 py-1.5 text-[10px] text-text-primary outline-none"
+              className="w-full rounded-md bg-white/5 border border-white/10 px-2 py-1.5 text-[12px] text-text-primary outline-none"
             >
               {modelOptions.length === 0 && <option value="">No model configured</option>}
               {modelOptions.map((m) => <option key={`${m.provider}:${m.model_name}`} value={m.label}>{m.label}</option>)}
@@ -126,15 +128,15 @@ export function MissionOrbit() {
 
             <div className="grid grid-cols-2 gap-2 my-3">
               <div className="rounded-md border border-white/10 bg-white/[0.03] p-2">
-                <p className="text-[9px] text-text-muted">Active Sessions</p>
+                <p className="text-[12px] text-text-muted">Active Sessions</p>
                 <p className="text-sm font-mono text-cyan">{onlineCount}</p>
               </div>
               <div className="rounded-md border border-white/10 bg-white/[0.03] p-2">
-                <p className="text-[9px] text-text-muted">Context</p>
+                <p className="text-[12px] text-text-muted">Context</p>
                 <select
                   value={contextScope}
                   onChange={(e) => setContextScope(e.target.value)}
-                  className="mt-1 w-full bg-transparent text-[10px] text-text-primary outline-none"
+                  className="mt-1 w-full bg-transparent text-[12px] text-text-primary outline-none"
                 >
                   <option>Project</option>
                   <option>Active file</option>
@@ -145,7 +147,7 @@ export function MissionOrbit() {
 
             <button
               type="button"
-              className="w-full flex items-center justify-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[10px] text-cyan hover:bg-cyan/15"
+              className="w-full flex items-center justify-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 py-2 text-[12px] text-cyan hover:bg-cyan/15"
               onClick={() => setQuickOpen('commands')}
             >
               <SlidersHorizontal size={13} />

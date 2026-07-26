@@ -234,7 +234,7 @@ export function QuickOpen() {
         <div className="flex items-center gap-2 px-4 py-3"
           style={{ borderBottom: '0.5px solid rgba(0,200,255,0.12)' }}
         >
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+          <span className="text-[12px] font-mono px-1.5 py-0.5 rounded"
             style={{ background: 'rgba(0,200,255,0.08)', border: '0.5px solid rgba(0,200,255,0.25)', color: '#00C8FF' }}
           >
             {MODE_LABEL[quickOpenMode!]}
@@ -257,7 +257,7 @@ export function QuickOpen() {
         {/* Results */}
         <div ref={listRef} className="max-h-[46vh] overflow-y-auto py-1">
           {items.length === 0 && (
-            <p className="text-[11px] text-text-muted text-center py-6">
+            <p className="text-[12px] text-text-muted text-center py-6">
               {quickOpenMode === 'symbols' && symbols.length === 0
                 ? 'No symbols indexed yet — open a project file first'
                 : 'No matches'}
@@ -272,16 +272,16 @@ export function QuickOpen() {
               style={i === selected ? { background: 'rgba(0,200,255,0.08)' } : undefined}
             >
               {ICONS[item.icon]}
-              <span className={`text-[12px] shrink-0 ${i === selected ? 'text-cyan' : 'text-text-primary'}`}>
+              <span className={`text-[13px] shrink-0 ${i === selected ? 'text-cyan' : 'text-text-primary'}`}>
                 {item.label}
               </span>
-              <span className="text-[10px] font-mono text-text-muted truncate">{item.detail}</span>
+              <span className="text-[12px] font-mono text-text-muted truncate">{item.detail}</span>
             </button>
           ))}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-3 px-4 py-2 text-[9px] font-mono text-text-muted/50"
+        <div className="flex items-center gap-3 px-4 py-2 text-[12px] font-mono text-text-muted/50"
           style={{ borderTop: '0.5px solid rgba(255,255,255,0.05)' }}
         >
           <span>↑↓ navigate</span>

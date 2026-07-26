@@ -17,13 +17,16 @@ export function OrbitalWorkspaceShell({ children }: { children?: React.ReactNode
   const { openOrbitalCard, project } = useAppStore()
   const joinCode = project?.invite_code || 'No code yet'
 
-  // Compact defaults. Editor is the primary center card; utilities open in
-  // side columns. The store's openOrbitalCard cascades on collision, so even
-  // if two utilities target the same slot, the second one offsets automatically.
+  // Compact defaults. Editor is the primary card (left/center); Mission Control (AI)
+  // opens as its own card on the right. openOrbitalCard cascades on collision, so on a
+  // narrow screen the second one offsets automatically instead of overlapping.
   useEffect(() => {
     const vw = window.innerWidth
     openOrbitalCard('editor', {
-      x: Math.max(240, Math.round(vw / 2 - 300)), y: 56, w: 600, h: 380,
+      x: Math.max(96, Math.round(vw / 2 - 430)), y: 64, w: 620, h: 460,
+    })
+    openOrbitalCard('ai', {
+      x: Math.max(24, vw - 432), y: 64, w: 404, h: 560,
     })
   }, [openOrbitalCard])
 

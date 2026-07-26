@@ -31,7 +31,7 @@ export function TopBar() {
       {/* ─── Mission bar: real git branch (A6 — hidden when not a repo) ── */}
       {gitBranch && (
         <div className="no-drag flex items-center gap-2 ml-4">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-mono"
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[12px] font-mono"
             style={{
               background: 'rgba(0,200,255,0.06)',
               borderColor: 'rgba(0,200,255,0.2)',
@@ -39,7 +39,7 @@ export function TopBar() {
             }}
             title={`Git branch: ${gitBranch}`}
           >
-            <span style={{ color: '#00C8FF', fontSize: '9px' }}>⎇</span>
+            <span style={{ color: '#00C8FF', fontSize: '12px' }}>⎇</span>
             <span className="truncate max-w-[120px]">{gitBranch}</span>
           </div>
         </div>
@@ -61,7 +61,7 @@ export function TopBar() {
                 })
               }
             }}
-            className="no-drag w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold border-2 transition-transform hover:scale-110 hover:z-10"
+            className="no-drag w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-bold border-2 transition-transform hover:scale-110 hover:z-10"
             style={{
               backgroundColor: peer.avatar_color,
               borderColor: '#000510',
@@ -75,7 +75,7 @@ export function TopBar() {
           </button>
         ))}
         {onlinePeers.length > 5 && (
-          <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-mono text-text-muted bg-surface border-2"
+          <div className="w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-mono text-text-muted bg-surface border-2"
             style={{ borderColor: '#000510' }}
           >
             +{onlinePeers.length - 5}
@@ -85,7 +85,7 @@ export function TopBar() {
 
       {/* ─── Model pill (purple) ─────────────────────────────────────────── */}
       {modelConfig && (
-        <div className="no-drag flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono mr-2"
+        <div className="no-drag flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-mono mr-2"
           style={{
             background: 'rgba(139,92,246,0.12)',
             border: '0.5px solid rgba(139,92,246,0.5)',
@@ -93,13 +93,13 @@ export function TopBar() {
           }}
         >
           <span className="truncate max-w-[100px]">{modelConfig.label}</span>
-          <span style={{ fontSize: '8px', opacity: 0.6 }}>▾</span>
+          <span style={{ fontSize: '11px', opacity: 0.6 }}>▾</span>
         </div>
       )}
 
       {/* ─── Live pill (green) ───────────────────────────────────────────── */}
       {onlinePeers.length > 0 && (
-        <div className="no-drag flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono"
+        <div className="no-drag flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-mono"
           style={{
             background: 'rgba(0,255,136,0.1)',
             border: '0.5px solid rgba(0,255,136,0.4)',

@@ -282,22 +282,39 @@ impl NetworkNode {
                     if let Ok((len, addr)) = udp_listen.recv_from(&mut buf).await {
                         if let Ok(packet) = serde_json::from_slice::<DiscoveryPacket>(&buf[..len]) {
                             let curr_hash = node_udp_rx.invite_hash.read().await.clone();
-                            if packet.invite_hash == curr_hash && packet.id != node_udp_rx.peer_id {
-                                // Found a peer with matching invite hash
+                            // Deterministic tie-break: both peers see each other's
+                            // broadcasts, but only the one with the smaller peer_id
+                            // dials — the other waits to accept. Without this, both
+                            // dial simultaneously (the connections map is still empty
+                            // mid-handshake) and we end up with two TCP links, duplicate
+                            // messages, and zombie reader/writer tasks for one peer.
+                            let should_dial = node_udp_rx.peer_id.as_str() < packet.id.as_str();
+                            if packet.invite_hash == curr_hash && should_dial {
                                 let is_known = node_udp_rx
                                     .connections
                                     .read()
                                     .await
                                     .contains_key(&packet.id);
                                 if !is_known {
+                                    // Harden: a malformed address must skip this peer,
+                                    // not panic (and kill) the whole discovery task.
+                                    let tcp_addr: SocketAddr =
+                                        match format!("{}:{}", addr.ip(), packet.tcp_port).parse() {
+                                            Ok(a) => a,
+                                            Err(e) => {
+                                                warn!(
+                                                    "Ignoring peer with unparseable address {}:{} — {}",
+                                                    addr.ip(),
+                                                    packet.tcp_port,
+                                                    e
+                                                );
+                                                continue;
+                                            }
+                                        };
                                     info!(
-                                        "Discovered matching peer {} at {}",
+                                        "Discovered matching peer {} at {} — dialing",
                                         packet.username, addr
                                     );
-                                    let tcp_addr: SocketAddr =
-                                        format!("{}:{}", addr.ip(), packet.tcp_port)
-                                            .parse()
-                                            .unwrap();
                                     if let Ok(stream) = TcpStream::connect(tcp_addr).await {
                                         Self::handle_new_connection(
                                             node_udp_rx.clone(),
@@ -428,6 +445,15 @@ impl NetworkNode {
                                 break; // Disconnect
                             }
 
+                            // Dedup: if we're already connected to this peer, this is a
+                            // redundant link (lost tie-break race / reconnect). Drop it
+                            // WITHOUT touching the map — leave pid empty so the writer's
+                            // cleanup won't evict the live connection's entry.
+                            if node_r.connections.read().await.contains_key(&id) {
+                                warn!("Duplicate connection from peer {} — dropping redundant link", id);
+                                break;
+                            }
+
                             *pid_r.write().await = id.clone();
                             node_r
                                 .connections
@@ -464,6 +490,13 @@ impl NetworkNode {
                             username,
                             avatar_color,
                         } => {
+                            // Dedup (see Handshake arm): reject a redundant link to a
+                            // peer we already hold, leaving pid empty so cleanup is a no-op.
+                            if node_r.connections.read().await.contains_key(&id) {
+                                warn!("Duplicate ack from peer {} — dropping redundant link", id);
+                                break;
+                            }
+
                             *pid_r.write().await = id.clone();
                             node_r
                                 .connections

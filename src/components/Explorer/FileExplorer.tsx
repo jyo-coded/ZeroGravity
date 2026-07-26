@@ -112,7 +112,7 @@ export function FileExplorer() {
       <div className="flex items-center gap-1 px-3 py-2.5 shrink-0"
         style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
       >
-        <span className="text-[9px] font-mono tracking-[0.2em] uppercase flex-1"
+        <span className="text-[12px] font-mono tracking-[0.2em] uppercase flex-1"
           style={{ color: 'rgba(0,200,255,0.5)' }}
         >
           Explorer
@@ -179,7 +179,7 @@ export function FileExplorer() {
                 ? (creating.dir ? `${creating.dir}/…` : 'src/new-file.ts')
                 : (creating.dir ? `${creating.dir}/…` : 'new-folder')}
               autoFocus
-              className="min-w-0 flex-1 bg-transparent text-[11px] text-text-primary placeholder-text-dim font-mono outline-none"
+              className="min-w-0 flex-1 bg-transparent text-[12px] text-text-primary placeholder-text-dim font-mono outline-none"
             />
           </div>
         </div>
@@ -188,7 +188,7 @@ export function FileExplorer() {
       {/* ─── Tree ───────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto py-1">
         {fileTree.length === 0 ? (
-          <p className="text-[10px] text-text-muted text-center mt-6">No files yet</p>
+          <p className="text-[12px] text-text-muted text-center mt-6">No files yet</p>
         ) : (
           fileTree.map((node) => (
             <TreeNode
@@ -258,20 +258,20 @@ export function FileExplorer() {
             <p className="text-xs text-text-primary mb-1 font-semibold">
               Delete {confirmDelete.is_dir ? 'folder' : 'file'}?
             </p>
-            <p className="text-[10px] font-mono text-text-muted mb-3 break-all">{confirmDelete.path}</p>
-            <p className="text-[10px] text-text-muted mb-4">
+            <p className="text-[12px] font-mono text-text-muted mb-3 break-all">{confirmDelete.path}</p>
+            <p className="text-[12px] text-text-muted mb-4">
               Undoable this session — contents are preserved in the mission log.
             </p>
             <div className="flex items-center justify-end gap-2">
               <button
                 onClick={() => setConfirmDelete(null)}
-                className="px-3 py-1 rounded-lg text-[10px] text-text-muted hover:text-text-primary transition-colors"
+                className="px-3 py-1 rounded-lg text-[12px] text-text-muted hover:text-text-primary transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={() => { deleteFsPath(confirmDelete.path); setConfirmDelete(null) }}
-                className="px-3 py-1 rounded-lg text-[10px] font-semibold"
+                className="px-3 py-1 rounded-lg text-[12px] font-semibold"
                 style={{ background: 'rgba(255,69,58,0.15)', border: '0.5px solid rgba(255,69,58,0.5)', color: '#FF453A' }}
               >
                 Delete
@@ -290,12 +290,12 @@ function MenuItem({ label, hint, danger, onClick }: { label: string; hint?: stri
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center justify-between px-3 py-1.5 text-[11px] transition-colors ${
+      className={`w-full flex items-center justify-between px-3 py-1.5 text-[12px] transition-colors ${
         danger ? 'text-red/80 hover:text-red hover:bg-red/10' : 'text-text-secondary hover:text-text-primary hover:bg-surface/40'
       }`}
     >
       <span>{label}</span>
-      {hint && <span className="text-[9px] font-mono text-text-muted/50">{hint}</span>}
+      {hint && <span className="text-[12px] font-mono text-text-muted/50">{hint}</span>}
     </button>
   )
 }
@@ -353,7 +353,7 @@ function TreeNode(props: TreeNodeProps) {
       onKeyDown={(e) => { if (e.key === 'Enter') commitRename(node.path) }}
       onBlur={() => commitRename(node.path)}
       onClick={(e) => e.stopPropagation()}
-      className="min-w-0 flex-1 bg-void/60 text-[11px] text-text-primary font-mono outline-none px-1 rounded"
+      className="min-w-0 flex-1 bg-void/60 text-[12px] text-text-primary font-mono outline-none px-1 rounded"
       style={{ border: '0.5px solid rgba(0,200,255,0.4)' }}
     />
   )
@@ -370,7 +370,7 @@ function TreeNode(props: TreeNodeProps) {
           {isExpanded ? <ChevronDown size={11} className="text-text-muted shrink-0" /> : <ChevronRight size={11} className="text-text-muted shrink-0" />}
           {isExpanded ? <FolderOpen size={12} className="text-cyan shrink-0" /> : <Folder size={12} className="text-cyan/60 shrink-0" />}
           {isRenaming ? renameInput : (
-            <span className="text-[11px] text-text-secondary group-hover:text-text-primary truncate">{node.name}</span>
+            <span className="text-[12px] text-text-secondary group-hover:text-text-primary truncate">{node.name}</span>
           )}
         </button>
         {isExpanded && node.children && (
@@ -396,7 +396,7 @@ function TreeNode(props: TreeNodeProps) {
       {isActive && <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-cyan rounded-r" style={{ boxShadow: '0 0 6px rgba(0,200,255,0.5)' }} />}
       <File size={11} className={isActive ? 'text-cyan shrink-0' : 'text-text-muted shrink-0'} />
       {isRenaming ? renameInput : (
-        <span className="text-[11px] truncate flex-1 text-left">{node.name}</span>
+        <span className="text-[12px] truncate flex-1 text-left">{node.name}</span>
       )}
       {hasConflict && <AlertTriangle size={10} className="text-orange mr-1 shrink-0" />}
       {/* A6: uncommitted-change dots (orange = modified, green = untracked) */}

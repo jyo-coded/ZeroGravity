@@ -72,7 +72,7 @@ export function ModelPill() {
       {/* Pill */}
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 px-3 py-1 rounded-full text-[10px] transition-all hover:brightness-125"
+        className="flex items-center gap-1 px-3 py-1 rounded-full text-[12px] transition-all hover:brightness-125"
         style={{
           background: 'rgba(139,92,246,0.12)',
           border: '0.5px solid rgba(139,92,246,0.5)',
@@ -81,9 +81,9 @@ export function ModelPill() {
       >
         <span className="truncate max-w-[80px]">{modelConfig.label}</span>
         {rotationList.length > 0 && (
-          <span className="text-[8px] opacity-70">+{rotationList.length}</span>
+          <span className="text-[11px] opacity-70">+{rotationList.length}</span>
         )}
-        <span style={{ fontSize: '8px', opacity: 0.6 }}>▾</span>
+        <span style={{ fontSize: '11px', opacity: 0.6 }}>▾</span>
       </button>
 
       <AnimatePresence>
@@ -105,21 +105,21 @@ export function ModelPill() {
             >
               {/* Active */}
               <div className="px-3 py-2.5" style={{ borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}>
-                <p className="text-[8px] font-mono tracking-[0.2em] uppercase text-text-muted mb-1">Active</p>
+                <p className="text-[11px] font-mono tracking-[0.2em] uppercase text-text-muted mb-1">Active</p>
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-green" style={{ boxShadow: '0 0 5px rgba(0,255,136,0.5)' }} />
-                  <span className="text-[11px] font-mono text-text-primary truncate">{modelConfig.label}</span>
-                  <span className="text-[9px] font-mono text-purple-light ml-auto shrink-0">{modelConfig.provider}</span>
+                  <span className="text-[12px] font-mono text-text-primary truncate">{modelConfig.label}</span>
+                  <span className="text-[12px] font-mono text-purple-light ml-auto shrink-0">{modelConfig.provider}</span>
                 </div>
               </div>
 
               {/* Rotation list */}
               <div className="px-3 py-2.5" style={{ borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}>
-                <p className="text-[8px] font-mono tracking-[0.2em] uppercase text-text-muted mb-1.5">
+                <p className="text-[11px] font-mono tracking-[0.2em] uppercase text-text-muted mb-1.5">
                   Rotation — auto-failover order
                 </p>
                 {rotationList.length === 0 && (
-                  <p className="text-[10px] text-text-muted/60">
+                  <p className="text-[12px] text-text-muted/60">
                     No backups — add one below and 429s stop hurting.
                   </p>
                 )}
@@ -132,11 +132,11 @@ export function ModelPill() {
                       className="flex items-center gap-1.5 py-1 group cursor-grab active:cursor-grabbing"
                     >
                       <GripVertical size={10} className="text-text-muted/40 shrink-0" />
-                      <span className="text-[9px] font-mono text-text-muted w-3 shrink-0">{i + 1}</span>
-                      <span className="text-[10px] font-mono text-text-secondary truncate flex-1" title={m.model_name}>
+                      <span className="text-[12px] font-mono text-text-muted w-3 shrink-0">{i + 1}</span>
+                      <span className="text-[12px] font-mono text-text-secondary truncate flex-1" title={m.model_name}>
                         {m.label}
                       </span>
-                      <span className="text-[8px] font-mono text-text-muted shrink-0">{m.provider}</span>
+                      <span className="text-[11px] font-mono text-text-muted shrink-0">{m.provider}</span>
                       <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                         <button onClick={() => promote(i)} className="p-0.5 text-text-muted hover:text-green" title="Make primary (swaps with current)">
                           <Play size={10} />
@@ -152,7 +152,7 @@ export function ModelPill() {
 
               {/* Add backup */}
               <div className="px-3 py-2.5 space-y-1.5" style={{ borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}>
-                <p className="text-[8px] font-mono tracking-[0.2em] uppercase text-text-muted">Add backup</p>
+                <p className="text-[11px] font-mono tracking-[0.2em] uppercase text-text-muted">Add backup</p>
                 <div className="flex items-center gap-1.5">
                   <select
                     value={addProvider}
@@ -161,7 +161,7 @@ export function ModelPill() {
                       setAddProvider(p)
                       setAddModel(ADD_PRESETS[p]?.model ?? '')
                     }}
-                    className="text-[10px] font-mono py-1 px-1.5 rounded outline-none shrink-0"
+                    className="text-[12px] font-mono py-1 px-1.5 rounded outline-none shrink-0"
                     style={{ background: 'rgba(255,255,255,0.05)', border: '0.5px solid rgba(255,255,255,0.1)', color: '#94A3B8' }}
                   >
                     <option value="groq">groq</option>
@@ -173,7 +173,7 @@ export function ModelPill() {
                     value={addModel}
                     onChange={(e) => setAddModel(e.target.value)}
                     placeholder="model id"
-                    className="flex-1 min-w-0 text-[10px] font-mono py-1 px-1.5 rounded outline-none bg-transparent text-text-primary placeholder-text-dim"
+                    className="flex-1 min-w-0 text-[12px] font-mono py-1 px-1.5 rounded outline-none bg-transparent text-text-primary placeholder-text-dim"
                     style={{ background: 'rgba(255,255,255,0.05)', border: '0.5px solid rgba(255,255,255,0.1)' }}
                   />
                 </div>
@@ -184,14 +184,14 @@ export function ModelPill() {
                       value={addKey}
                       onChange={(e) => setAddKey(e.target.value)}
                       placeholder={ADD_PRESETS[addProvider]?.keyPlaceholder || 'api key'}
-                      className="flex-1 min-w-0 text-[10px] font-mono py-1 px-1.5 rounded outline-none bg-transparent text-text-primary placeholder-text-dim"
+                      className="flex-1 min-w-0 text-[12px] font-mono py-1 px-1.5 rounded outline-none bg-transparent text-text-primary placeholder-text-dim"
                       style={{ background: 'rgba(255,255,255,0.05)', border: '0.5px solid rgba(255,255,255,0.1)' }}
                     />
                   )}
                   <button
                     onClick={addBackup}
                     disabled={!addModel.trim()}
-                    className="flex items-center gap-1 text-[9px] font-mono px-2 py-1 rounded-full disabled:opacity-30 shrink-0 ml-auto"
+                    className="flex items-center gap-1 text-[12px] font-mono px-2 py-1 rounded-full disabled:opacity-30 shrink-0 ml-auto"
                     style={{ background: 'rgba(0,200,255,0.1)', border: '0.5px solid rgba(0,200,255,0.4)', color: '#00C8FF' }}
                   >
                     <Plus size={9} />
@@ -202,12 +202,12 @@ export function ModelPill() {
 
               {/* Usage */}
               <div className="px-3 py-2.5">
-                <p className="text-[8px] font-mono tracking-[0.2em] uppercase text-text-muted mb-1">Usage</p>
+                <p className="text-[11px] font-mono tracking-[0.2em] uppercase text-text-muted mb-1">Usage</p>
                 {stats.length === 0 && (
-                  <p className="text-[10px] text-text-muted/60">No requests yet this session.</p>
+                  <p className="text-[12px] text-text-muted/60">No requests yet this session.</p>
                 )}
                 {stats.map((s) => (
-                  <div key={s.provider} className="flex items-center gap-2 py-0.5 text-[9px] font-mono">
+                  <div key={s.provider} className="flex items-center gap-2 py-0.5 text-[12px] font-mono">
                     <span className="text-text-secondary w-16 truncate">{s.provider}</span>
                     <span className="text-text-muted">
                       {s.minute_count}{s.minute_cap ? `/${s.minute_cap}` : ''} rpm

@@ -279,12 +279,12 @@ export function InlineConstellation() {
   return (
     <div className="absolute inset-0 flex flex-col">
       <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
-        <span className="text-[9px] font-mono tracking-[0.2em] uppercase"
+        <span className="text-[12px] font-mono tracking-[0.2em] uppercase"
           style={{ color: 'rgba(0,200,255,0.35)' }}
         >
           Project Constellation
         </span>
-        <span className="text-[8px] font-mono text-text-muted/40">
+        <span className="text-[11px] font-mono text-text-muted/40">
           {nodeCount} files · scroll to zoom · drag to pan
         </span>
       </div>
@@ -293,7 +293,7 @@ export function InlineConstellation() {
 
       {nodeCount === 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <p className="text-[10px] font-mono text-text-muted/40">
+          <p className="text-[12px] font-mono text-text-muted/40">
             Indexing project… the graph appears once files are scanned
           </p>
         </div>
@@ -303,15 +303,15 @@ export function InlineConstellation() {
       <div className="absolute bottom-4 left-4 flex items-center gap-4">
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#00C8FF', opacity: 0.8 }} />
-          <span className="text-[9px] text-text-muted">active</span>
+          <span className="text-[12px] text-text-muted">active</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#00FF88', opacity: 0.8 }} />
-          <span className="text-[9px] text-text-muted">peer editing</span>
+          <span className="text-[12px] text-text-muted">peer editing</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#FFA500', opacity: 0.8 }} />
-          <span className="text-[9px] text-text-muted">recently changed</span>
+          <span className="text-[12px] text-text-muted">recently changed</span>
         </div>
       </div>
     </div>

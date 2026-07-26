@@ -50,6 +50,31 @@ fn safe_project_join(root: &Path, path: &str) -> Result<PathBuf> {
     Ok(out)
 }
 
+/// The edit contract sent with every request.
+///
+/// Placed FIRST in the prompt so it survives context truncation: if a long file
+/// pushes content out of the window, the model must still know how to express a
+/// change. Without this the model returns prose or whole-file rewrites, and the
+/// deterministic applier has nothing to apply.
+const EDIT_PROTOCOL: &str = r#"[HOW TO EDIT CODE]
+When you change code, emit edit blocks in exactly this format - one per contiguous change:
+
+```edit <relative/file/path>
+<<<<<<< SEARCH
+(the exact existing lines to replace, copied verbatim from the file)
+=======
+(the replacement lines)
+>>>>>>> REPLACE
+```
+
+Rules:
+- SEARCH must match the current file exactly, including indentation. Copy it; do not retype it.
+- Include enough surrounding lines to make the match unique within the file.
+- Use several small blocks rather than one large one. Never reproduce a whole file to change part of it.
+- To create a new file, leave the SEARCH section empty and put the full contents in REPLACE.
+- Explain your reasoning in prose outside the blocks. Never describe an edit you did not emit as a block.
+- If you are only answering a question, emit no blocks at all."#;
+
 impl Orchestrator {
     pub fn new() -> Self {
         Self
@@ -268,7 +293,8 @@ impl Orchestrator {
         };
 
         format!(
-            "[SYSTEM CONTEXT]\n{}\n\n{}Currently Open File: {}\nFile Content:\n{}\n\n{}{}[TEAM CONTEXT]\nRecent teammate changes (last 5 cross-file):\n{}\n\nChangelog for current file (last 5 entries):\n{}\n\n{}[USER REQUEST]\n{}",
+            "{}\n\n[SYSTEM CONTEXT]\n{}\n\n{}Currently Open File: {}\nFile Content:\n{}\n\n{}{}[TEAM CONTEXT]\nRecent teammate changes (last 5 cross-file):\n{}\n\nChangelog for current file (last 5 entries):\n{}\n\n{}[USER REQUEST]\n{}",
+            EDIT_PROTOCOL,
             project_summary,
             graph_section,
             file,

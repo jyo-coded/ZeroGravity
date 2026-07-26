@@ -143,12 +143,15 @@ export function GlassCard({
       exit={{ opacity: 0, scale: 0.94 }}
       transition={{ type: 'spring', stiffness: 320, damping: 26 }}
       className="absolute top-0 left-0"
-      style={{ x, y, width: w, height: h, zIndex: card.z, perspective: 1400 }}
+      style={{ x, y, width: w, height: h, zIndex: card.z, ...(tilt ? { perspective: 1400 } : {}) }}
     >
-      {/* Inner wrapper owns the tilt so it never fights the drag translate */}
+      {/* Inner wrapper owns the tilt so it never fights the drag translate.
+          When tilt is disabled we must NOT establish a preserve-3d / perspective
+          context here: a WebGL <canvas> nested inside one renders blank in
+          Chromium/WebView2 (that was the Constellation "black canvas" bug). */}
       <motion.div
         className="glasscard-surface w-full h-full flex flex-col overflow-hidden"
-        style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
+        style={tilt ? { rotateX, rotateY, transformStyle: 'preserve-3d' } : undefined}
       >
         {/* ── Header: drag handle + title + chrome ─────────────────────── */}
         <div
@@ -165,7 +168,7 @@ export function GlassCard({
             ))}
           </div>
           {icon && <span className="shrink-0 text-cyan/80">{icon}</span>}
-          <span className="text-[11px] font-mono tracking-wide text-text-primary/90 truncate flex-1">
+          <span className="text-[12px] font-mono tracking-wide text-text-primary/90 truncate flex-1">
             {title}
           </span>
           {headerExtra}

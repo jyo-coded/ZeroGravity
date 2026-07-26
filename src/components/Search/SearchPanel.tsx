@@ -109,7 +109,7 @@ export function SearchPanel() {
     >
       {/* Header */}
       <div className="px-3 py-2.5 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        <span className="text-[9px] font-mono tracking-[0.2em] uppercase" style={{ color: 'rgba(0,200,255,0.5)' }}>
+        <span className="text-[12px] font-mono tracking-[0.2em] uppercase" style={{ color: 'rgba(0,200,255,0.5)' }}>
           Search
         </span>
       </div>
@@ -125,7 +125,7 @@ export function SearchPanel() {
             onChange={(e) => onQueryChange(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') runSearch(query) }}
             placeholder="Search project…"
-            className="flex-1 min-w-0 bg-transparent py-1.5 text-[11px] text-text-primary placeholder-text-dim outline-none font-mono"
+            className="flex-1 min-w-0 bg-transparent py-1.5 text-[12px] text-text-primary placeholder-text-dim outline-none font-mono"
           />
           <button
             onClick={() => toggleOpt(() => setCaseSensitive(!caseSensitive))}
@@ -152,12 +152,12 @@ export function SearchPanel() {
             value={replacement}
             onChange={(e) => setReplacement(e.target.value)}
             placeholder="Replace with…"
-            className="flex-1 min-w-0 bg-transparent py-1.5 text-[11px] text-text-primary placeholder-text-dim outline-none font-mono"
+            className="flex-1 min-w-0 bg-transparent py-1.5 text-[12px] text-text-primary placeholder-text-dim outline-none font-mono"
           />
           <button
             onClick={doReplace}
             disabled={replacing || selectedCount === 0}
-            className="text-[9px] font-mono px-2 py-0.5 rounded-full disabled:opacity-30 shrink-0"
+            className="text-[12px] font-mono px-2 py-0.5 rounded-full disabled:opacity-30 shrink-0"
             style={{ background: 'rgba(0,255,136,0.12)', border: '0.5px solid rgba(0,255,136,0.5)', color: '#00FF88' }}
           >
             {replacing ? '…' : `Replace ${selectedCount || ''}`}
@@ -171,7 +171,7 @@ export function SearchPanel() {
             onChange={(e) => setIncludeGlob(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') runSearch(query) }}
             placeholder="include: *.rs, src/**"
-            className="flex-1 min-w-0 bg-transparent rounded-lg px-2 py-1 text-[10px] text-text-secondary placeholder-text-dim outline-none font-mono"
+            className="flex-1 min-w-0 bg-transparent rounded-lg px-2 py-1 text-[12px] text-text-secondary placeholder-text-dim outline-none font-mono"
             style={{ background: 'rgba(255,255,255,0.03)', border: '0.5px solid rgba(255,255,255,0.06)' }}
           />
           <input
@@ -179,19 +179,19 @@ export function SearchPanel() {
             onChange={(e) => setExcludeGlob(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') runSearch(query) }}
             placeholder="exclude: *.json"
-            className="flex-1 min-w-0 bg-transparent rounded-lg px-2 py-1 text-[10px] text-text-secondary placeholder-text-dim outline-none font-mono"
+            className="flex-1 min-w-0 bg-transparent rounded-lg px-2 py-1 text-[12px] text-text-secondary placeholder-text-dim outline-none font-mono"
             style={{ background: 'rgba(255,255,255,0.03)', border: '0.5px solid rgba(255,255,255,0.06)' }}
           />
         </div>
 
         {/* Count */}
         {status === 'done' && (
-          <p className="text-[9px] font-mono text-text-muted">
+          <p className="text-[12px] font-mono text-text-muted">
             {results.length === 0 ? 'No results' :
               `${results.length}${results.length >= 500 ? '+' : ''} result${results.length !== 1 ? 's' : ''} in ${byFile.size} file${byFile.size !== 1 ? 's' : ''}`}
           </p>
         )}
-        {status === 'searching' && <p className="text-[9px] font-mono text-cyan animate-pulse">Searching…</p>}
+        {status === 'searching' && <p className="text-[12px] font-mono text-cyan animate-pulse">Searching…</p>}
       </div>
 
       {/* Results */}
@@ -209,9 +209,9 @@ export function SearchPanel() {
                 className="w-full flex items-center gap-1.5 px-3 py-1 hover:bg-surface/30 transition-colors"
               >
                 {isCollapsed ? <ChevronRight size={10} className="text-text-muted shrink-0" /> : <ChevronDown size={10} className="text-text-muted shrink-0" />}
-                <span className="text-[10px] font-mono text-cyan/80 truncate">{basename(file)}</span>
-                <span className="text-[9px] font-mono text-text-muted/50 truncate flex-1 text-left">{file}</span>
-                <span className="text-[9px] font-mono text-text-muted shrink-0">{matches.length}</span>
+                <span className="text-[12px] font-mono text-cyan/80 truncate">{basename(file)}</span>
+                <span className="text-[12px] font-mono text-text-muted/50 truncate flex-1 text-left">{file}</span>
+                <span className="text-[12px] font-mono text-text-muted shrink-0">{matches.length}</span>
               </button>
 
               {!isCollapsed && matches.map((m) => {
@@ -238,8 +238,8 @@ export function SearchPanel() {
                       className="flex-1 min-w-0 flex items-center gap-1.5 text-left"
                       title={`${m.file}:${m.line}`}
                     >
-                      <span className="text-[9px] font-mono text-text-muted/60 shrink-0 w-7 text-right">{m.line}</span>
-                      <span className="text-[10px] font-mono truncate">
+                      <span className="text-[12px] font-mono text-text-muted/60 shrink-0 w-7 text-right">{m.line}</span>
+                      <span className="text-[12px] font-mono truncate">
                         <span className="text-text-muted">{pre.length > 40 ? '…' + pre.slice(-40) : pre}</span>
                         <span className="text-void px-0.5 rounded-sm" style={{ background: '#00C8FF' }}>{mid}</span>
                         <span className="text-text-muted">{post}</span>

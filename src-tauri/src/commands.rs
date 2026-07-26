@@ -25,6 +25,10 @@ pub struct AppState {
     /// Gives each AI model structural context (imports, reverse-deps, definitions)
     /// instead of just raw file content.
     pub code_graph: Arc<Mutex<CodeGraph>>,
+    /// Cached project summary (dir tree + type detection). Rebuilding this walks
+    /// the filesystem, so it's cached here and invalidated by the scanner whenever
+    /// a file changes — instead of re-walking on every single AI message.
+    pub project_summary_cache: Arc<Mutex<Option<String>>>,
     pub changelog: Mutex<Option<Changelog>>,
     pub orchestrator: Arc<Orchestrator>,
     pub model_client: Arc<ModelClient>,
@@ -49,6 +53,7 @@ impl AppState {
             project: Mutex::new(None),
             project_context: Arc::new(Mutex::new(HashMap::new())),
             code_graph: Arc::new(Mutex::new(CodeGraph::new())),
+            project_summary_cache: Arc::new(Mutex::new(None)),
             changelog: Mutex::new(None),
             orchestrator: Arc::new(Orchestrator::new()),
             model_client: Arc::new(ModelClient::new()),
@@ -278,10 +283,12 @@ pub async fn create_project(
     // Initialize the file watcher, context map, and code graph
     state.project_context.lock().await.clear();
     *state.code_graph.lock().await = CodeGraph::new();
+    *state.project_summary_cache.lock().await = None;
     start_scanner(
         root.clone(),
         Arc::clone(&state.project_context),
         Arc::clone(&state.code_graph),
+        Arc::clone(&state.project_summary_cache),
         app.clone(),
     )
     .await;
@@ -324,10 +331,12 @@ pub async fn join_project(
     // Initialize the file watcher, context map, and code graph
     state.project_context.lock().await.clear();
     *state.code_graph.lock().await = CodeGraph::new();
+    *state.project_summary_cache.lock().await = None;
     start_scanner(
         root.clone(),
         Arc::clone(&state.project_context),
         Arc::clone(&state.code_graph),
+        Arc::clone(&state.project_summary_cache),
         app.clone(),
     )
     .await;
@@ -696,7 +705,20 @@ pub async fn invoke_ai(
         .map(|p| p.root_path.clone())
         .ok_or("No project open")?;
 
-    let project_summary = build_project_summary(&PathBuf::from(root_path)).await;
+    // Use the cached summary if the scanner hasn't invalidated it since the last
+    // build; otherwise walk the tree once and repopulate the cache. This turns a
+    // per-message filesystem walk into (at most) one walk per file change.
+    let project_summary = {
+        let cached = state.project_summary_cache.lock().await.clone();
+        match cached {
+            Some(s) => s,
+            None => {
+                let s = build_project_summary(&PathBuf::from(&root_path)).await;
+                *state.project_summary_cache.lock().await = Some(s.clone());
+                s
+            }
+        }
+    };
 
     let project_context_guard = state.project_context.lock().await;
     let graph_guard = state.code_graph.lock().await;

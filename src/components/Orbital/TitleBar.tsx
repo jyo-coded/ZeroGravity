@@ -45,11 +45,11 @@ export function TitleBar() {
         className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 pointer-events-none"
         data-tauri-drag-region
       >
-        <span className="text-[12px] font-mono font-bold text-gradient tracking-tight">0G</span>
+        <span className="text-[13px] font-mono font-bold text-gradient tracking-tight">0G</span>
         {project?.name && (
           <>
-            <span className="text-text-muted/30 text-[11px]">·</span>
-            <span className="text-[11px] text-text-secondary/80">{project.name}</span>
+            <span className="text-text-muted/30 text-[12px]">·</span>
+            <span className="text-[12px] text-text-secondary/80">{project.name}</span>
           </>
         )}
       </div>
@@ -61,7 +61,7 @@ export function TitleBar() {
             <button
               key={peer.id}
               onClick={() => { if (!peer.is_self) followPeer(peer.id) }}
-              className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border transition-transform hover:scale-110"
+              className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold border transition-transform hover:scale-110"
               style={{ backgroundColor: peer.avatar_color, borderColor: '#060a1a', color: '#000408' }}
               title={peer.is_self ? `${peer.username} (you)` : `Follow ${peer.username}`}
             >
@@ -70,14 +70,14 @@ export function TitleBar() {
           ))}
         </div>
         {modelConfig && (
-          <div className="px-2.5 py-0.5 rounded-full text-[10px] font-mono truncate max-w-[130px]"
+          <div className="px-2.5 py-0.5 rounded-full text-[12px] font-mono truncate max-w-[130px]"
             style={{ background: 'rgba(139,92,246,0.14)', border: '0.5px solid rgba(139,92,246,0.45)', color: '#A78BFA' }}
           >
             {modelConfig.label}
           </div>
         )}
         {onlinePeers.length > 1 && (
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono"
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[12px] font-mono"
             style={{ background: 'rgba(0,255,136,0.10)', border: '0.5px solid rgba(0,255,136,0.4)', color: '#00FF88' }}
           >
             <span className="w-[5px] h-[5px] rounded-full bg-green" style={{ animation: 'livePulse 2s ease-in-out infinite' }} />

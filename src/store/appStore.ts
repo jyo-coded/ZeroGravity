@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { listen } from '@tauri-apps/api/event'
 import type {
   AppView,
   ChangelogEntry,
@@ -12,7 +11,7 @@ import type {
   WorkspaceView,
 } from '../lib/types'
 import * as api from '../lib/api'
-import { getFileLanguage } from '../lib/utils'
+import { getFileLanguage, basename } from '../lib/utils'
 
 // ─── Persistence helpers ───────────────────────────────────────────────────────
 const LS_IDENTITY = '0g_identity'
@@ -968,18 +967,39 @@ export const useAppStore = create<AppState>((set, get) => {
       })),
 
     applyRemoteEntry: async (entry) => {
-      const { activeFile, openFile, addChangelogEntry, loadFileTree } = get()
-      
-      // Update changelog list
+      const { activeFile, openFile, addChangelogEntry, loadFileTree, isDirty, addNotification } = get()
+
+      // Metadata side is always safe: record the change + refresh the tree
+      // (covers newly-created files from a peer).
       addChangelogEntry(entry)
-      
-      // Update file tree in case it's a new file
       await loadFileTree()
 
-      // If active file was modified, reload its content
-      if (activeFile === entry.file) {
-        await openFile(entry.file)
+      // The buffer side is where the P0-3 clobber lived. Only touch the editor
+      // if the peer changed the file we're actively looking at — and even then,
+      // never silently overwrite live or unsaved local work.
+      if (activeFile !== entry.file) return
+
+      // Live-CRDT-bound: the shared doc already keeps every peer's buffer in
+      // sync keystroke-by-keystroke. Reloading from disk here would clobber the
+      // live buffer AND re-broadcast a spurious full-file delta to everyone.
+      // The CRDT layer owns this file — leave it alone.
+      const { isBound } = await import('../lib/crdt')
+      if (isBound(entry.file)) return
+
+      // Not bound, but the local buffer has unsaved edits: a blind reload would
+      // discard the user's own work. Surface a conflict instead of overwriting
+      // (mirrors the external-file-change handler).
+      if (isDirty) {
+        addNotification({
+          type: 'conflict',
+          detail: 'Remote change',
+          message: `${entry.changed_by} changed ${basename(entry.file)} — save to keep yours, or close the tab to take theirs`,
+        })
+        return
       }
+
+      // Clean buffer, not bound — safe to reflect the peer's change.
+      await openFile(entry.file)
     },
 
     // ─── AI & Chat ────────────────────────────────────────────────────────────
@@ -1171,48 +1191,12 @@ export const useAppStore = create<AppState>((set, get) => {
       set({ isAiWriting: true, streamingText: null })
 
       try {
-        let cleanedUp = false
-        const cleanup = () => {
-          if (cleanedUp) return
-          cleanedUp = true
-          unlistenOk?.()
-          unlistenErr?.()
-          unlistenChunk?.()
-        }
-
-        let unlistenOk: (() => void) | undefined
-        let unlistenErr: (() => void) | undefined
-        let unlistenChunk: (() => void) | undefined
-
-        // T0-3: live token stream
-        unlistenChunk = await listen<{ file: string; delta: string }>('ai_chunk', (event) => {
-          const delta = event.payload.delta ?? ''
-          set((s) => ({ streamingText: (s.streamingText ?? '') + delta }))
-        })
-
-        unlistenOk = await listen<{ file: string; output?: string; error?: string }>(
-          'ai_write_complete',
-          (event) => {
-            cleanup()
-            const output = event.payload.output ?? ''
-            addChatMessage({ role: 'assistant', content: output })
-            set({ isAiWriting: false, streamingText: null })
-          }
-        )
-
-        unlistenErr = await listen<{ error: string }>('ai_write_error', (event) => {
-          cleanup()
-          // Keep whatever streamed before the failure as a visible partial
-          const partial = get().streamingText
-          set({ isAiWriting: false, streamingText: null })
-          addChatMessage({
-            role: 'assistant',
-            content: partial
-              ? `${partial}\n\n*(interrupted: ${event.payload.error})*`
-              : `**AI Error:** ${event.payload.error}`,
-          })
-        })
-
+        // The token stream (ai_chunk) and terminal events (ai_write_complete /
+        // ai_write_error) are handled by app-level listeners registered ONCE in
+        // Workspace. Registering them per-call (as this used to) leaked a listener
+        // trio on every interrupted message — a new invoke aborts the prior backend
+        // task, which then emits no terminal event, so the old listeners were never
+        // torn down and stacked ai_chunk handlers double-appended every delta.
         await api.invokeAi({
           file: activeFile || '',
           prompt,
@@ -1221,8 +1205,9 @@ export const useAppStore = create<AppState>((set, get) => {
           image_base64: attachedImage?.base64,
           image_mime_type: attachedImage?.mimeType,
         })
-
       } catch (err: unknown) {
+        // The backend command failed to dispatch — no ai_write_* event will arrive,
+        // so reset the streaming state here (the listeners handle the normal paths).
         set({ isAiWriting: false, streamingText: null })
         addChatMessage({ role: 'assistant', content: `**System Error:** ${err instanceof Error ? err.message : String(err)}` })
       }

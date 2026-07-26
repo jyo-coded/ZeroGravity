@@ -37,6 +37,7 @@ pub async fn start_scanner(
     root: PathBuf,
     context_map_ref: Arc<Mutex<HashMap<String, String>>>,
     graph_ref: Arc<Mutex<CodeGraph>>,
+    summary_cache_ref: Arc<Mutex<Option<String>>>,
     app: AppHandle,
 ) {
     info!("Starting project context scanner for {:?}", root);
@@ -45,6 +46,7 @@ pub async fn start_scanner(
     let root_clone = root.clone();
     let map_clone = Arc::clone(&context_map_ref);
     let graph_clone = Arc::clone(&graph_ref);
+    let app_scan = app.clone();
 
     tokio::task::spawn_blocking(move || {
         let walker = WalkDir::new(&root_clone)
@@ -69,8 +71,15 @@ pub async fn start_scanner(
         // avoids holding two locks at once.
         let mut graph = graph_clone.blocking_lock();
         graph.build_from_map(&initial_map);
-        info!("CodeGraph ready: {}", graph.stats());
+        let stats = graph.stats();
+        info!("CodeGraph ready: {}", stats);
         drop(graph);
+
+        // Tell the frontend the graph is populated. Without this, the Constellation
+        // view fetches once on mount — often BEFORE this background scan finishes —
+        // gets an empty graph, and never refetches (its only other trigger is a
+        // changelog commit), so it renders empty until the user happens to save.
+        let _ = app_scan.emit("graph_ready", serde_json::json!({ "stats": stats }));
 
         // Commit context map
         let mut map = map_clone.blocking_lock();
@@ -85,6 +94,7 @@ pub async fn start_scanner(
     let root_watch = root.clone();
     let map_watch = Arc::clone(&context_map_ref);
     let graph_watch = Arc::clone(&graph_ref);
+    let summary_watch = Arc::clone(&summary_cache_ref);
 
     tokio::task::spawn_blocking(move || {
         let (tx, rx) = std::sync::mpsc::channel();
@@ -130,6 +140,11 @@ pub async fn start_scanner(
                                 serde_json::json!({ "path": uniform }),
                             );
                         }
+
+                        // Any change (including create/delete/rename) can alter the
+                        // project summary's tree — drop the cache so the next AI
+                        // message rebuilds it fresh.
+                        *summary_watch.blocking_lock() = None;
 
                         if !path.is_file() {
                             continue;

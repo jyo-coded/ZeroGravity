@@ -67,7 +67,7 @@ export function CockpitRing() {
           >
             {/* Share section */}
             <div className="p-4" style={{ borderBottom: '0.5px solid rgba(255,255,255,0.06)' }}>
-              <p className="text-[9px] uppercase font-mono tracking-[0.2em] mb-2"
+              <p className="text-[12px] uppercase font-mono tracking-[0.2em] mb-2"
                 style={{ color: 'rgba(0,200,255,0.5)' }}
               >
                 Workspace Code
@@ -119,13 +119,13 @@ export function CockpitRing() {
                         <p className="text-xs text-text-primary font-medium truncate">
                           {collab.username} {collab.is_self && <span className="text-text-muted">(You)</span>}
                         </p>
-                        <p className="text-[10px] text-text-muted truncate capitalize">
+                        <p className="text-[12px] text-text-muted truncate capitalize">
                           {collab.status === 'writing' && collab.current_file
                             ? `Writing in ${collab.current_file.split('/').pop()}`
                             : collab.status}
                         </p>
                       </div>
-                      <div className="shrink-0 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-mono"
+                      <div className="shrink-0 px-2 py-0.5 rounded text-[12px] uppercase tracking-wider font-mono"
                         style={{ color: permStyle.color, border: `0.5px solid ${permStyle.border}` }}
                       >
                         {collab.permission}
@@ -164,7 +164,7 @@ export function CockpitRing() {
         />
 
         {/* Peer count + icon */}
-        <span className="text-[10px] font-mono" style={{ color: '#00C8FF', opacity: 0.9 }}>
+        <span className="text-[12px] font-mono" style={{ color: '#00C8FF', opacity: 0.9 }}>
           {online.length} peer{online.length !== 1 ? 's' : ''} ⬡
         </span>
       </motion.div>

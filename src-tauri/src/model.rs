@@ -174,9 +174,21 @@ pub async fn safely_open_file(path_str: &str) -> Result<String> {\n\
 
 impl ModelClient {
     pub fn new() -> Self {
-        Self {
-            http: Client::new(),
-        }
+        // Timeouts are what stop a wedged provider from hanging the whole app
+        // forever. We deliberately do NOT set a total-request timeout — that
+        // would kill a legitimately long generation. Instead:
+        //   connect_timeout: never hang establishing a socket to a dead host.
+        //   read_timeout:    resets on every received byte, so a healthy stream
+        //                    (tokens arriving continuously) never trips it, but
+        //                    a provider that stalls with no data for the window
+        //                    errors out — which makes the failover chain in
+        //                    rotation.rs actually fire (a hang is never an Err).
+        let http = Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(15))
+            .read_timeout(std::time::Duration::from_secs(120))
+            .build()
+            .unwrap_or_else(|_| Client::new());
+        Self { http }
     }
 
     /// Streaming invocation — `on_chunk` receives each text delta as it

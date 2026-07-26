@@ -1,7 +1,7 @@
 import { FilePlus2, Grid3X3, PanelsLeftRight, Save, SquareTerminal } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 
-const CARD_ORDER = ['editor', 'explorer', 'search', 'problems', 'constellation', 'team', 'peers', 'timeline'] as const
+const CARD_ORDER = ['ai', 'editor', 'explorer', 'search', 'problems', 'constellation', 'team', 'peers', 'timeline'] as const
 
 export function BottomDock() {
   const { openOrbitalCard, setOrbitalCardRect, requestExplorerCreate, saveAll } = useAppStore()

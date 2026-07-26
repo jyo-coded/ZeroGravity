@@ -16,17 +16,21 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, Paperclip, X, ImageIcon, Trash2, Square } from 'lucide-react'
+import { Send, Paperclip, X, ImageIcon, Square } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
-import { ModelPill } from './ModelPill'
+import { useAgent } from '../../store/agentStore'
+import { AgentRun } from '../Agent/AgentRun'
+import { Bot } from 'lucide-react'
 
 export function MissionControl() {
   const {
     chatHistory, invokeAi, isAiWriting, applyCodeSnippet,
-    clearChatHistory, activeFile, streamingText, cancelAi,
+    activeFile, streamingText, cancelAi, addChatMessage,
   } = useAppStore()
 
   const [prompt, setPrompt] = useState('')
+  const [agentMode, setAgentMode] = useState(true)
+  const { start: startAgent, running: agentRunning } = useAgent()
   const [attachedImage, setAttachedImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null)
   const msgsEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -35,8 +39,19 @@ export function MissionControl() {
     msgsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatHistory, streamingText])
 
+  const busy = isAiWriting || agentRunning
+
   const handleSend = () => {
-    if ((!prompt.trim() && !attachedImage) || isAiWriting) return
+    if ((!prompt.trim() && !attachedImage) || busy) return
+    // Agent mode runs the tool-using loop (it can read and search the project
+    // before deciding); plain mode is a single-shot answer about what's open.
+    if (agentMode && !attachedImage) {
+      const task = prompt
+      addChatMessage({ role: 'user', content: task })
+      setPrompt('')
+      startAgent(task)
+      return
+    }
     invokeAi(prompt, attachedImage ? { base64: attachedImage.base64, mimeType: attachedImage.mimeType } : undefined)
     setPrompt('')
     setAttachedImage(null)
@@ -58,7 +73,7 @@ export function MissionControl() {
   const renderMessageContent = (content: string) => {
     const parts = content.split(/```(\w+)?\r?\n([\s\S]*?)```/g)
     if (parts.length === 1) {
-      return <div className="whitespace-pre-wrap text-[11px] leading-relaxed">{content}</div>
+      return <div className="whitespace-pre-wrap text-[12px] leading-relaxed">{content}</div>
     }
 
     const blocks: JSX.Element[] = []
@@ -66,7 +81,7 @@ export function MissionControl() {
     while (i < parts.length) {
       const text = parts[i]
       if (text) blocks.push(
-        <div key={`t${i}`} className="whitespace-pre-wrap text-[11px] leading-relaxed mb-2">{text}</div>
+        <div key={`t${i}`} className="whitespace-pre-wrap text-[12px] leading-relaxed mb-2">{text}</div>
       )
       const lang = parts[i + 1]
       const code = parts[i + 2]
@@ -80,19 +95,19 @@ export function MissionControl() {
           >
             {/* Top beam line */}
             <div className="h-[1px] w-full" style={{ background: 'rgba(0,200,255,0.3)' }} />
-            <div className="flex items-center justify-between px-3 py-1.5 text-[9px] font-mono"
+            <div className="flex items-center justify-between px-3 py-1.5 text-[12px] font-mono"
               style={{ color: '#A78BFA' }}
             >
               <span>AI · {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
             </div>
-            <pre className="px-3 pb-3 overflow-x-auto text-[9px] font-mono text-text-primary leading-relaxed">
+            <pre className="px-3 pb-3 overflow-x-auto text-[12px] font-mono text-text-primary leading-relaxed">
               <code>{code}</code>
             </pre>
             {/* Apply / Copy buttons */}
             <div className="flex items-center justify-end gap-2 px-3 pb-2">
               <button
                 onClick={() => navigator.clipboard.writeText(code)}
-                className="px-3 py-1 rounded-full text-[9px]"
+                className="px-3 py-1 rounded-full text-[12px]"
                 style={{
                   background: 'rgba(255,255,255,0.04)',
                   border: '0.5px solid rgba(255,255,255,0.08)',
@@ -104,7 +119,7 @@ export function MissionControl() {
               <button
                 onClick={() => applyCodeSnippet(code, lang ?? '')}
                 disabled={isAiWriting}
-                className="btn-beam text-[9px] px-3 py-1 disabled:opacity-50"
+                className="btn-beam text-[12px] px-3 py-1 disabled:opacity-50"
               >
                 <span>✦ Apply</span>
               </button>
@@ -119,34 +134,7 @@ export function MissionControl() {
 
   return (
     <div className="mission-control">
-      {/* ─── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-4 shrink-0"
-        style={{
-          height: '48px',
-          background: 'rgba(0,200,255,0.05)',
-          borderBottom: '1px solid rgba(0,200,255,0.12)',
-        }}
-      >
-        <span className="text-[13px] font-display font-bold"
-          style={{ color: '#00C8FF' }}
-        >
-          Mission Control
-        </span>
-
-        <div className="flex items-center gap-2">
-          {/* Model pill — rotation manager (B6) */}
-          <ModelPill />
-
-          {/* Close button */}
-          <button
-            onClick={() => clearChatHistory()}
-            className="text-text-muted/40 hover:text-text-muted transition-colors"
-          >
-            <Trash2 size={13} />
-          </button>
-        </div>
-      </div>
-
+      <AgentRun />
       {/* ─── Context strip ──────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 px-4 shrink-0"
         style={{
@@ -155,9 +143,9 @@ export function MissionControl() {
           borderBottom: '0.5px solid rgba(255,255,255,0.05)',
         }}
       >
-        <span className="text-[9px] text-text-muted">context:</span>
+        <span className="text-[12px] text-text-muted">context:</span>
         {activeFile && (
-          <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[8px] font-mono"
+          <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-mono"
             style={{
               background: 'rgba(0,200,255,0.08)',
               border: '0.5px solid rgba(0,200,255,0.3)',
@@ -174,8 +162,8 @@ export function MissionControl() {
         {chatHistory.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center opacity-30">
             <div className="text-3xl font-display font-bold text-gradient mb-3">0G</div>
-            <p className="text-[10px] text-text-secondary">I have access to your active file and project.</p>
-            <p className="text-[10px] text-text-muted mt-1">What are we building?</p>
+            <p className="text-[12px] text-text-secondary">I have access to your active file and project.</p>
+            <p className="text-[12px] text-text-muted mt-1">What are we building?</p>
           </div>
         )}
 
@@ -197,7 +185,7 @@ export function MissionControl() {
               }}
             >
               {msg.role === 'assistant' && (
-                <div className="text-[9px] mb-1.5" style={{ color: '#A78BFA' }}>
+                <div className="text-[12px] mb-1.5" style={{ color: '#A78BFA' }}>
                   AI · {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
               )}
@@ -215,7 +203,7 @@ export function MissionControl() {
                 border: '0.5px solid rgba(139,92,246,0.2)',
               }}
             >
-              <div className="text-[9px] mb-1.5" style={{ color: '#A78BFA' }}>
+              <div className="text-[12px] mb-1.5" style={{ color: '#A78BFA' }}>
                 AI · streaming
               </div>
               {renderMessageContent(streamingText)}
@@ -246,7 +234,7 @@ export function MissionControl() {
                   }}
                 />
               ))}
-              <span className="text-[9px] ml-1.5" style={{ color: '#A78BFA', opacity: 0.7 }}>thinking...</span>
+              <span className="text-[12px] ml-1.5" style={{ color: '#A78BFA', opacity: 0.7 }}>thinking...</span>
             </div>
           </div>
         )}
@@ -271,7 +259,7 @@ export function MissionControl() {
             >
               <ImageIcon size={12} className="text-cyan shrink-0" />
               <img src={attachedImage.preview} alt="attachment" className="h-10 w-10 object-cover rounded" />
-              <span className="text-[10px] text-text-muted flex-1 truncate">{attachedImage.mimeType}</span>
+              <span className="text-[12px] text-text-muted flex-1 truncate">{attachedImage.mimeType}</span>
               <button onClick={() => setAttachedImage(null)} className="text-text-muted hover:text-red transition-colors">
                 <X size={12} />
               </button>
@@ -303,7 +291,7 @@ export function MissionControl() {
                   if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); handleSend() }
                 }}
                 placeholder="Describe what you want to build..."
-                className="flex-1 bg-transparent py-2.5 px-1 text-[11px] outline-none resize-none overflow-y-auto max-h-28 min-h-[38px] text-text-primary"
+                className="flex-1 bg-transparent py-2.5 px-1 text-[12px] outline-none resize-none overflow-y-auto max-h-28 min-h-[38px] text-text-primary"
                 style={{ '::placeholder': { color: '#2D3748' } } as React.CSSProperties}
                 rows={Math.min(4, Math.max(1, prompt.split('\n').length))}
               />
@@ -328,7 +316,7 @@ export function MissionControl() {
           ) : (
             <button
               onClick={handleSend}
-              disabled={!prompt.trim() && !attachedImage}
+              disabled={(!prompt.trim() && !attachedImage) || busy}
               className="shrink-0 rounded-[10px] flex items-center justify-center transition-all disabled:opacity-30"
               style={{
                 width: '38px',
@@ -343,8 +331,23 @@ export function MissionControl() {
         </div>
 
         {/* Bottom hint */}
-        <div className="text-[9px] text-text-dim mt-2 text-center font-mono">
-          ⌘K · attach file · switch model
+        <div className="flex items-center gap-2 mt-2">
+          <button
+            type="button"
+            className="agent-toggle"
+            aria-pressed={agentMode}
+            onClick={() => setAgentMode((v) => !v)}
+            title={agentMode
+              ? 'Agent can read and search your project before editing'
+              : 'Single answer using only the open file'}
+          >
+            <Bot size={12} />
+            {agentMode ? 'Agent' : 'Chat'}
+          </button>
+          <span style={{ flex: 1 }} />
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)' }}>
+            Ctrl+Enter to send
+          </span>
         </div>
       </div>
     </div>

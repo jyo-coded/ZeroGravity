@@ -10,11 +10,14 @@
 import { useRef, useState, useEffect } from 'react'
 import MonacoEditor, { OnMount } from '@monaco-editor/react'
 import type * as Monaco from 'monaco-editor'
-import { X, Plus, MoreHorizontal, Circle, Check } from 'lucide-react'
+import { X, Plus, MoreHorizontal } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
+import { useEditorStatus } from '../../store/editorStatus'
+import { useSettings, monacoOptionsFrom } from '../../store/settingsStore'
 import * as api from '../../lib/api'
 import { getFileLanguage, basename } from '../../lib/utils'
 import { registerLspProviders, lspOpen, lspChange, lspClose } from '../../lib/lsp'
+import { registerInlineCompletion } from '../../lib/inlineCompletion'
 import { bindEditor, unbind } from '../../lib/crdt'
 
 let formattersRegistered = false
@@ -52,14 +55,62 @@ export function EditorCard() {
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof Monaco | null>(null)
   const gitDecosRef = useRef<string[]>([])
+  const vimRef = useRef<{ dispose(): void } | null>(null)
+  const vimStatusRef = useRef<HTMLDivElement>(null)
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 })
   const [eol, setEol] = useState<'LF' | 'CRLF'>('LF')
   const [indent, setIndent] = useState('Spaces: 2')
   const [editorReady, setEditorReady] = useState(false)
   const [showOverflow, setShowOverflow] = useState(false)
 
+  const settings = useSettings()
   const language = getFileLanguage(activeFile ?? '')
   const peersOnline = collaborators.some((c) => !c.is_self && c.status !== 'offline')
+
+  // Vim mode. Attached and detached live, so toggling the setting takes effect
+  // without reopening the file. monaco-vim is imported lazily: a user who never
+  // enables it never downloads or parses it.
+  useEffect(() => {
+    let cancelled = false
+    const editor = editorRef.current
+    if (!editorReady || !editor) return
+
+    if (settings.vimMode) {
+      import('monaco-vim')
+        .then(({ initVimMode }) => {
+          if (cancelled || !editorRef.current) return
+          vimRef.current = initVimMode(editorRef.current, vimStatusRef.current)
+        })
+        .catch(() => {
+          useAppStore.getState().addNotification({
+            type: 'error',
+            detail: 'Vim mode unavailable',
+            message: 'The vim keybinding module could not be loaded.',
+          })
+        })
+    }
+
+    return () => {
+      cancelled = true
+      // Always dispose: leaving the binding attached across an editor swap would
+      // capture keys for a model that no longer exists.
+      vimRef.current?.dispose()
+      vimRef.current = null
+    }
+  }, [settings.vimMode, editorReady, activeFile])
+
+  // Publish editor telemetry to the global status bar. The editor owns these
+  // facts; the status bar renders them. Kept in a dedicated store so a cursor
+  // move repaints the status bar alone, never the tree or the AI panel.
+  useEffect(() => {
+    useEditorStatus.getState().set({
+      line: cursorPos.line,
+      col: cursorPos.col,
+      eol,
+      indent: activeFileIsBinary ? 'binary' : indent,
+      language: activeFileIsBinary ? 'binary' : language,
+    })
+  }, [cursorPos.line, cursorPos.col, eol, indent, language, activeFileIsBinary])
 
   // Save (Ctrl+S)
   useEffect(() => {
@@ -137,6 +188,7 @@ export function EditorCard() {
     setEditorReady(true)
     registerCliFormatters(monaco)
     registerLspProviders(monaco)
+    registerInlineCompletion(monaco)
     editor.onDidChangeCursorPosition((e) => setCursorPos({ line: e.position.lineNumber, col: e.position.column }))
     const syncMeta = () => {
       const m = editor.getModel()
@@ -159,64 +211,76 @@ export function EditorCard() {
 
   return (
     <div className="flex flex-col h-full w-full">
-      {/* ── Tab bar ────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 px-2 h-8 shrink-0 overflow-hidden"
-        style={{ borderBottom: '1px solid rgba(140,200,255,0.08)' }}
-      >
-        <div className="flex items-center gap-1 overflow-x-auto flex-1" style={{ scrollbarWidth: 'none' }}>
-          {openTabs.map((tab) => {
-            const buf = tabCache[tab]
-            const dirty = tab === activeFile ? isDirty : Boolean(buf && !buf.isBinary && buf.content !== buf.savedContent)
-            const isActive = tab === activeFile
-            return (
-              <div key={tab}
-                onClick={() => { if (!isActive) openFile(tab) }}
-                onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); closeTab(tab) } }}
-                className="group flex items-center gap-1.5 shrink-0 px-2.5 py-1 rounded-lg cursor-pointer transition-colors"
-                style={isActive
-                  ? { background: 'rgba(0,200,255,0.12)', border: '0.5px solid rgba(0,200,255,0.35)' }
-                  : { background: 'rgba(255,255,255,0.03)', border: '0.5px solid transparent' }}
-                title={tab}
+      {/* ── Tab bar ────────────────────────────────────────────────────────
+          Flush tabs with a top accent rail on the active one. Pills were the
+          old look; a real editor's tabs sit edge-to-edge so the strip reads as
+          one surface and the active tab connects visually to the code below. */}
+      <div className="tabbar" role="tablist" aria-label="Open files">
+        {openTabs.map((tab) => {
+          const buf = tabCache[tab]
+          const dirty = tab === activeFile ? isDirty : Boolean(buf && !buf.isBinary && buf.content !== buf.savedContent)
+          const isActive = tab === activeFile
+          return (
+            <div
+              key={tab}
+              role="tab"
+              aria-selected={isActive}
+              tabIndex={isActive ? 0 : -1}
+              onClick={() => { if (!isActive) openFile(tab) }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openFile(tab) } }}
+              onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); closeTab(tab) } }}
+              className="tab"
+              title={tab}
+            >
+              <span className="truncate">{basename(tab)}</span>
+              {dirty && <span className="tab-dirty" title="Unsaved changes" />}
+              <button
+                className="tab-close"
+                onClick={(e) => { e.stopPropagation(); closeTab(tab) }}
+                aria-label={`Close ${basename(tab)}`}
+                title="Close"
               >
-                <span className={`text-[10px] font-mono truncate max-w-[110px] ${isActive ? 'text-cyan' : 'text-text-muted group-hover:text-text-secondary'}`}>
-                  {basename(tab)}
-                </span>
-                {dirty && <Circle size={6} className="fill-orange text-orange shrink-0" />}
-                <button onClick={(e) => { e.stopPropagation(); closeTab(tab) }} className="text-text-muted/30 hover:text-text-primary shrink-0">
-                  <X size={10} />
-                </button>
-              </div>
-            )
-          })}
-        </div>
-        {/* + new file */}
-        <button onClick={() => requestExplorerCreate('file')} className="p-1 rounded text-text-muted/50 hover:text-cyan shrink-0" title="New file">
-          <Plus size={13} />
-        </button>
-        {/* ••• overflow */}
-        <div className="relative shrink-0">
-          <button onClick={() => setShowOverflow((v) => !v)} className="p-1 rounded text-text-muted/50 hover:text-text-primary" title="Tabs menu">
-            <MoreHorizontal size={13} />
+                <X size={13} />
+              </button>
+            </div>
+          )
+        })}
+
+        <div className="flex items-center gap-1 px-2 ml-auto sticky right-0" style={{ background: 'var(--bg-base)' }}>
+          <button className="btn btn-ghost btn-icon" onClick={() => requestExplorerCreate('file')} title="New file" aria-label="New file">
+            <Plus size={15} />
           </button>
-          {showOverflow && (
-            <>
-              <div className="fixed inset-0 z-[80]" onClick={() => setShowOverflow(false)} />
-              <div className="absolute right-0 top-full mt-1 w-40 glasscard-surface z-[90] py-1 max-h-60 overflow-y-auto">
-                {openTabs.map((tab) => (
-                  <button key={tab} onClick={() => { openFile(tab); setShowOverflow(false) }}
-                    className="w-full text-left px-3 py-1 text-[10px] font-mono text-text-secondary hover:text-cyan hover:bg-cyan/8 truncate">
-                    {basename(tab)}
-                  </button>
-                ))}
-                {openTabs.length > 0 && (
-                  <button onClick={() => { closeAllTabs(); setShowOverflow(false) }}
-                    className="w-full text-left px-3 py-1 text-[10px] font-mono text-red/70 hover:text-red border-t border-white/5 mt-1">
-                    Close all tabs
-                  </button>
-                )}
-              </div>
-            </>
-          )}
+          <div className="relative">
+            <button className="btn btn-ghost btn-icon" onClick={() => setShowOverflow((v) => !v)} title="Open editors" aria-label="Open editors">
+              <MoreHorizontal size={15} />
+            </button>
+            {showOverflow && (
+              <>
+                <div className="fixed inset-0" style={{ zIndex: 'var(--z-overlay)' }} onClick={() => setShowOverflow(false)} />
+                <div
+                  className="overlay-surface absolute right-0 top-full mt-1 w-56 py-1 max-h-72 overflow-y-auto"
+                  style={{ zIndex: 'calc(var(--z-overlay) + 1)' }}
+                  role="menu"
+                >
+                  {openTabs.map((tab) => (
+                    <button key={tab} role="menuitem" className="list-row" onClick={() => { openFile(tab); setShowOverflow(false) }}>
+                      <span className="truncate">{basename(tab)}</span>
+                    </button>
+                  ))}
+                  {openTabs.length > 0 && (
+                    <button
+                      role="menuitem"
+                      className="list-row"
+                      style={{ color: 'var(--danger)', borderTop: '1px solid var(--border-subtle)', marginTop: 4 }}
+                      onClick={() => { closeAllTabs(); setShowOverflow(false) }}
+                    >
+                      Close all editors
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -231,40 +295,44 @@ export function EditorCard() {
             onChange={(v) => setActiveFileContent(v ?? '')}
             onMount={handleMount}
             theme="vs-dark"
-            loading={<span className="text-[11px] font-mono text-text-muted animate-pulse">Loading editor…</span>}
-            options={{ readOnly: isAiWriting || activeFileIsBinary, domReadOnly: activeFileIsBinary }}
+            loading={<span className="text-[12px] font-mono text-text-muted animate-pulse">Loading editor…</span>}
+            options={{
+              ...monacoOptionsFrom(settings),
+              readOnly: isAiWriting || activeFileIsBinary,
+              domReadOnly: activeFileIsBinary,
+            }}
           />
         ) : (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center">
-              <div className="text-4xl font-display font-bold text-gradient mb-2 opacity-25">0G</div>
-              <p className="text-[11px] text-text-muted">Open a file from the File Explorer disc</p>
-            </div>
-          </div>
+          <EmptyEditor />
         )}
         {isAiWriting && <div className="absolute inset-x-0 top-0 h-0.5 writing-indicator" />}
       </div>
 
-      {/* ── Status bar (full reference set) ────────────────────────────── */}
-      <div className="flex items-center gap-3 px-3 h-6 shrink-0 text-[10px] font-mono text-text-muted"
-        style={{ borderTop: '1px solid rgba(140,200,255,0.08)' }}
-      >
-        <span>Ln {cursorPos.line}, Col {cursorPos.col}</span>
-        <span className="text-border">·</span>
-        <span>{activeFileIsBinary ? 'binary' : indent}</span>
-        <span className="text-border">·</span>
-        <span>UTF-8</span>
-        <span className="text-border">·</span>
-        <span>{eol}</span>
-        <span className="text-border">·</span>
-        <span className="uppercase">{activeFileIsBinary ? 'binary' : language}</span>
-        <div className="ml-auto flex items-center gap-1.5">
-          {isDirty ? (
-            <><Circle size={7} className="fill-orange text-orange" /><span className="text-orange">Unsaved</span></>
-          ) : activeFile ? (
-            <><Check size={11} className="text-green" /><span className="text-green">Saved</span></>
-          ) : null}
-        </div>
+      {/* Vim's mode indicator and ':' command line. Rendered only in vim mode so
+          it never takes vertical space from users who don't use it. */}
+      {settings.vimMode && <div ref={vimStatusRef} className="vim-status" aria-live="polite" />}
+    </div>
+  )
+}
+
+/**
+ * No file open. Names the two fastest ways in rather than decorating the void —
+ * an empty state's job is to move the user, not to fill space.
+ */
+function EmptyEditor() {
+  const setQuickOpen = useAppStore((s) => s.setQuickOpen)
+  return (
+    <div className="empty-state">
+      <p className="empty-state-title">No file open</p>
+      <p className="empty-state-hint">
+        Open one from the Explorer, or jump straight to it by name.
+      </p>
+      <div className="flex items-center gap-2" style={{ marginTop: 'var(--space-2)' }}>
+        <button className="btn btn-primary" onClick={() => setQuickOpen('files')}>
+          Go to File
+        </button>
+        <span className="kbd">Ctrl</span>
+        <span className="kbd">P</span>
       </div>
     </div>
   )
