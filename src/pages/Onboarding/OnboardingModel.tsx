@@ -4,90 +4,18 @@ import { Key, Globe, Cpu, ChevronDown } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import * as api from '../../lib/api'
 import type { ModelConfig, ModelProvider } from '../../lib/types'
-
-interface ProviderOption {
-  value: ModelProvider
-  label: string
-  models: string[]
-  needsKey: boolean
-  placeholder: string
-  urlPlaceholder?: string
-  hint?: string
-}
-
-const PROVIDERS: ProviderOption[] = [
-  {
-    value: 'groq',
-    label: 'Groq (Recommended — free tier)',
-    models: [
-      'llama-3.3-70b-versatile',
-      'llama-3.1-8b-instant',
-      'openai/gpt-oss-120b',
-      'qwen/qwen3-32b',
-    ],
-    needsKey: true,
-    placeholder: 'gsk_...',
-    hint: 'Free API key at console.groq.com — no credit card. 70B-class model, instant responses.',
-  },
-  {
-    value: 'openrouter',
-    label: 'OpenRouter (free models)',
-    models: [
-      'openrouter/free',
-      'deepseek/deepseek-chat-v3.1:free',
-      'qwen/qwen3-coder:free',
-      'meta-llama/llama-3.3-70b-instruct:free',
-    ],
-    needsKey: true,
-    placeholder: 'sk-or-...',
-    hint: 'Free key at openrouter.ai — "openrouter/free" auto-picks an available free model.',
-  },
-  {
-    value: 'anthropic',
-    label: 'Anthropic (Claude)',
-    models: ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5'],
-    needsKey: true,
-    placeholder: 'sk-ant-...',
-  },
-  {
-    value: 'openai',
-    label: 'OpenAI (GPT)',
-    models: ['gpt-4o', 'gpt-4o-mini', 'o3-mini'],
-    needsKey: true,
-    placeholder: 'sk-...',
-  },
-  {
-    value: 'google',
-    label: 'Google (Gemini)',
-    models: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'],
-    needsKey: true,
-    placeholder: 'AIza...',
-  },
-  {
-    value: 'ollama',
-    label: 'Ollama (Local — private)',
-    models: [], // populated dynamically via detect_ollama
-    needsKey: false,
-    placeholder: '',
-    urlPlaceholder: 'http://localhost:11434',
-    hint: 'Best for privacy — everything runs on your machine.',
-  },
-  {
-    value: 'custom',
-    label: 'Custom Endpoint',
-    models: [],
-    needsKey: true,
-    placeholder: 'sk-...',
-    urlPlaceholder: 'https://your-api.com/v1',
-  },
-]
+import {
+  PROVIDER_PRESETS as PROVIDERS, presetFor, DEFAULT_PROVIDER, DEFAULT_MODEL,
+} from '../../lib/modelPresets'
 
 export function OnboardingModel() {
   const { setModelConfig, setView } = useAppStore()
   // B3: Groq llama-3.3-70b is the first-run default — zero cost, zero local
   // hardware, and (unlike the old 1.5B local default) it actually works.
-  const [provider, setProvider] = useState<ModelProvider>('groq')
-  const [modelName, setModelName] = useState('llama-3.3-70b-versatile')
+  // Gemini Flash is the first-run default: free, multimodal, and quota'd per day
+  // rather than per minute — the per-minute ceiling is what broke agent runs.
+  const [provider, setProvider] = useState<ModelProvider>(DEFAULT_PROVIDER)
+  const [modelName, setModelName] = useState(DEFAULT_MODEL)
   const [apiKey, setApiKey] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
   const [customModel, setCustomModel] = useState('')
@@ -112,7 +40,7 @@ export function OnboardingModel() {
       })
   }, [provider, baseUrl])
 
-  const providerOpt = PROVIDERS.find((p) => p.value === provider)!
+  const providerOpt = presetFor(provider)
   const isOllama = provider === 'ollama'
   const isCustom = provider === 'custom'
   const effectiveModelName = isOllama ? modelName : isCustom ? customModel : modelName
@@ -127,7 +55,10 @@ export function OnboardingModel() {
       provider,
       model_name: name,
       api_key: apiKey || undefined,
-      base_url: baseUrl || undefined,
+      // Vendors with a known endpoint (Cerebras, Ollama Cloud) carry it in the
+      // preset, so the user never has to know or type a base URL. A typed one
+      // still wins, which keeps self-hosted and proxied setups working.
+      base_url: baseUrl.trim() || providerOpt.fixedBaseUrl || undefined,
       label: name,
     }
     await setModelConfig(config)
@@ -170,7 +101,7 @@ export function OnboardingModel() {
                 onChange={(e) => {
                   const p = e.target.value as ModelProvider
                   setProvider(p)
-                  const opt = PROVIDERS.find((x) => x.value === p)!
+                  const opt = presetFor(p)
                   setModelName(opt.models[0] ?? '')
                   setApiKey('')
                   setBaseUrl('')
@@ -184,7 +115,24 @@ export function OnboardingModel() {
               <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
             </div>
             {providerOpt.hint && (
-              <p className="text-xs text-text-muted mt-1.5">{providerOpt.hint}</p>
+              <p className="text-xs text-text-muted mt-1.5">
+                {providerOpt.hint}
+                {/* Where to actually get the key — the step that otherwise sends
+                    the user searching mid-setup. */}
+                {providerOpt.keyUrl && (
+                  <>
+                    {' '}
+                    <a
+                      href={providerOpt.keyUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      style={{ color: 'var(--accent)' }}
+                    >
+                      Get a key →
+                    </a>
+                  </>
+                )}
+              </p>
             )}
           </div>
 

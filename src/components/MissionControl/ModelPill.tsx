@@ -15,13 +15,8 @@ import { GripVertical, X, Play, Plus } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import * as api from '../../lib/api'
 import type { ModelConfig, ModelProvider } from '../../lib/types'
+import { PROVIDER_PRESETS, presetFor } from '../../lib/modelPresets'
 
-const ADD_PRESETS: Record<string, { model: string; keyPlaceholder: string }> = {
-  groq:       { model: 'llama-3.3-70b-versatile', keyPlaceholder: 'gsk_...' },
-  openrouter: { model: 'openrouter/free',          keyPlaceholder: 'sk-or-...' },
-  ollama:     { model: '',                          keyPlaceholder: '' },
-  custom:     { model: '',                          keyPlaceholder: 'sk-...' },
-}
 
 export function ModelPill() {
   const { modelConfig, setModelConfig, rotationList, setRotationList } = useAppStore()
@@ -29,8 +24,8 @@ export function ModelPill() {
   const [stats, setStats] = useState<api.UsageStat[]>([])
 
   // Add-backup form
-  const [addProvider, setAddProvider] = useState<ModelProvider>('groq')
-  const [addModel, setAddModel] = useState(ADD_PRESETS.groq.model)
+  const [addProvider, setAddProvider] = useState<ModelProvider>('google')
+  const [addModel, setAddModel] = useState(presetFor('google').models[0] ?? '')
   const [addKey, setAddKey] = useState('')
 
   useEffect(() => {
@@ -60,7 +55,9 @@ export function ModelPill() {
       provider: addProvider,
       model_name: model,
       api_key: addKey.trim() || undefined,
-      base_url: undefined,
+      // Vendors with a known endpoint carry it in the preset, so adding a
+      // Cerebras or Ollama Cloud backup needs only a key.
+      base_url: presetFor(addProvider).fixedBaseUrl,
       label: model,
     }
     setRotationList([...rotationList, cfg])
@@ -159,15 +156,16 @@ export function ModelPill() {
                     onChange={(e) => {
                       const p = e.target.value as ModelProvider
                       setAddProvider(p)
-                      setAddModel(ADD_PRESETS[p]?.model ?? '')
+                      setAddModel(presetFor(p as ModelProvider).models[0] ?? '')
                     }}
                     className="text-[12px] font-mono py-1 px-1.5 rounded outline-none shrink-0"
                     style={{ background: 'rgba(255,255,255,0.05)', border: '0.5px solid rgba(255,255,255,0.1)', color: '#94A3B8' }}
                   >
-                    <option value="groq">groq</option>
-                    <option value="openrouter">openrouter</option>
-                    <option value="ollama">ollama</option>
-                    <option value="custom">custom</option>
+                    {/* Driven by the shared presets so a provider added there
+                        is immediately available as a failover here too. */}
+                    {PROVIDER_PRESETS.map((p) => (
+                      <option key={p.value} value={p.value}>{p.value}</option>
+                    ))}
                   </select>
                   <input
                     value={addModel}
@@ -183,7 +181,7 @@ export function ModelPill() {
                       type="password"
                       value={addKey}
                       onChange={(e) => setAddKey(e.target.value)}
-                      placeholder={ADD_PRESETS[addProvider]?.keyPlaceholder || 'api key'}
+                      placeholder={presetFor(addProvider).placeholder || 'api key'}
                       className="flex-1 min-w-0 text-[12px] font-mono py-1 px-1.5 rounded outline-none bg-transparent text-text-primary placeholder-text-dim"
                       style={{ background: 'rgba(255,255,255,0.05)', border: '0.5px solid rgba(255,255,255,0.1)' }}
                     />

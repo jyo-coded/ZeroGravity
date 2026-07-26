@@ -16,7 +16,12 @@ export interface ChangelogEntry {
   conflict_flag: boolean
 }
 
-export type ModelProvider = 'openai' | 'anthropic' | 'google' | 'groq' | 'openrouter' | 'ollama' | 'custom'
+// 'cerebras' and 'ollama-cloud' are OpenAI-compatible endpoints: the Rust model
+// layer falls through to its generic branch for any provider it doesn't name
+// explicitly, using base_url. They need configuration, not new transport code.
+export type ModelProvider =
+  | 'openai' | 'anthropic' | 'google' | 'groq' | 'openrouter'
+  | 'ollama' | 'ollama-cloud' | 'cerebras' | 'custom'
 
 export interface OllamaLocalModel {
   name: string
