@@ -1,6 +1,7 @@
 import * as api from './api'
 import { useAppStore } from '../store/appStore'
 import { ptySpawn, ptyWrite, onPtyOutput, onPtyExit, decodePtyChunk } from './terminalApi'
+import { numberLines, windowFile, sliceLines } from './fileWindow'
 
 /**
  * The agent's tools.
@@ -39,7 +40,8 @@ ONE fenced block and nothing else after it — stop and wait for the result:
 \`\`\`
 
 Available tools:
-- read_file   {"path": string}                  — read a project file
+- read_file   {"path": string, "start"?: number, "end"?: number}
+              — read a project file; pass start/end to fetch a specific line range
 - list_dir    {"path": string}                  — list a directory (use "" for the project root)
 - grep        {"query": string}                 — search the project's text for a string
 - diagnostics {}                                — current errors and warnings from the language server
@@ -47,6 +49,8 @@ Available tools:
 
 Rules:
 - One tool call per message. Never guess a file's contents — read it.
+- A long file is shown with its MIDDLE omitted. Never write a SEARCH block for
+  lines you were not shown; re-read that range with start/end first.
 - When you have enough information, STOP calling tools and emit your edit blocks.
 - If the task needs no code change, just answer in prose.
 `.trim()
@@ -89,11 +93,31 @@ export async function runTool(
           return { ok: false, observation: `${path} is a binary file.`, label: `read ${path}` }
         }
         const content = raw?.content ?? ''
-        // Numbered so the model can cite lines and copy SEARCH text accurately.
-        const numbered = content.split('\n').map((l, i) => `${i + 1}\t${l}`).join('\n')
+
+        // Optional line range: after a windowed read, the model can fetch the
+        // exact region it still needs instead of paying for the whole file again.
+        const wantsRange = Number(call.args.start ?? 0) > 0
+        if (wantsRange) {
+          const { body, from, to, total } = sliceLines(
+            content,
+            Number(call.args.start ?? 1),
+            Number(call.args.end ?? 0),
+          )
+          return {
+            ok: true,
+            observation: `${path} lines ${from}-${to} of ${total}:\n` +
+              truncate(numberLines(body, from), MAX_FILE_CHARS),
+            label: `read ${path}:${from}-${to}`,
+          }
+        }
+
+        const totalLines = content.split('\n').length
+        // Windowed from BOTH ends: a head-only view hides the bottom of the file,
+        // which makes "edit the end of this file" impossible to express.
         return {
           ok: true,
-          observation: `Contents of ${path}:\n${truncate(numbered, MAX_FILE_CHARS)}`,
+          observation: `Contents of ${path} (${totalLines} lines):\n` +
+            windowFile(numberLines(content), MAX_FILE_CHARS, totalLines),
           label: `read ${path}`,
         }
       }

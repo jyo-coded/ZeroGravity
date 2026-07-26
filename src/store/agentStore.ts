@@ -28,6 +28,8 @@ export interface AgentStep {
 }
 
 const MAX_STEPS = 12
+/** How many times the agent may re-attempt after its edits failed to match. */
+const MAX_REPAIRS = 2
 
 
 interface AgentState {
@@ -125,6 +127,7 @@ User: ${task}`,
       ].filter(Boolean)
 
       const recentCalls: string[] = []
+      let repairs = 0
 
       try {
         for (let step = 0; step < MAX_STEPS; step++) {
@@ -161,7 +164,28 @@ User: ${task}`,
             if (edits.length > 0) {
               push('edits', `Proposed changes to ${edits.length} file${edits.length === 1 ? '' : 's'}`, prose || undefined)
               await useChangeSet.getState().proposeEdits(edits, task.slice(0, 120), res?.model ?? modelLabel)
-              push('done', 'Ready for review')
+
+              // If NOTHING could be applied, the model wrote SEARCH text that
+              // isn't in the file — usually because it guessed at a region it
+              // never read. Hand the failure back so it can re-read and correct
+              // itself, instead of dead-ending on an error card the user has to
+              // dismiss. Bounded, because a model that can't match twice won't.
+              const files = useChangeSet.getState().changeSet?.files ?? []
+              const failed = files.filter((f) => f.error)
+              if (files.length > 0 && failed.length === files.length && repairs < MAX_REPAIRS) {
+                repairs++
+                useChangeSet.getState().discard()
+                push('error', 'Edit did not match the file — retrying', failed[0]?.error)
+                transcript.push(
+                  `[SYSTEM] Your edit blocks could not be applied:\n` +
+                  failed.map((f) => `- ${f.path}: ${f.error}`).join('\n') +
+                  `\nRe-read the exact region with read_file (use start/end for a line range), ` +
+                  `copy the SEARCH text verbatim from that output, and try again.`,
+                )
+                continue
+              }
+
+              push('done', failed.length > 0 ? 'Ready for review (some edits failed)' : 'Ready for review')
             } else {
               push('done', 'Answered', prose || text)
               useAppStore.getState().addChatMessage({ role: 'assistant', content: prose || text })
