@@ -22,9 +22,9 @@ export interface ToolResult {
 }
 
 /** Output caps. A tool that dumps a whole repo into the prompt ends the run. */
-const MAX_FILE_CHARS = 12_000
+const MAX_FILE_CHARS = 6_000
 const MAX_LIST = 200
-const MAX_MATCHES = 60
+const MAX_MATCHES = 40
 
 const truncate = (s: string, n: number) =>
   s.length <= n ? s : `${s.slice(0, n)}\n… [truncated, ${s.length - n} more characters]`

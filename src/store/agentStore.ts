@@ -4,6 +4,7 @@ import { parseToolCall, runTool, TOOL_CONTRACT, type ApprovalFn } from '../lib/a
 import { parseEditBlocks, EDIT_PROTOCOL_PROMPT } from '../lib/editProtocol'
 import { useChangeSet } from './changeSetStore'
 import { useAppStore } from './appStore'
+import { isTrivial, trimTranscript, isRateLimit, friendlyError, sleep } from '../lib/agentBudget'
 
 /**
  * agentStore — the tool-using loop.
@@ -27,6 +28,7 @@ export interface AgentStep {
 }
 
 const MAX_STEPS = 12
+
 
 interface AgentState {
   running: boolean
@@ -89,6 +91,25 @@ export const useAgent = create<AgentState>((set, get) => {
       const activeFile = app.activeFile
       const modelLabel = app.modelConfig?.label ?? 'AI'
 
+      // Greetings and small talk answer in one cheap call. This is the single
+      // biggest saving on a rate-limited key: no tools, no transcript, no loop.
+      if (isTrivial(task)) {
+        try {
+          const res = await invoke<{ text: string; model: string }>('ai_raw', {
+            prompt: `You are the AI assistant inside the 0G code editor. Reply to the user in one or two short sentences. Do not call tools and do not produce code.
+
+User: ${task}`,
+          })
+          push('done', 'Answered')
+          app.addChatMessage({ role: 'assistant', content: res?.text?.trim() || 'Hello.' })
+        } catch (e) {
+          push('error', 'Run failed', friendlyError(e))
+          app.addChatMessage({ role: 'assistant', content: friendlyError(e) })
+        }
+        set({ running: false })
+        return
+      }
+
       const system = [
         'You are a senior engineer working inside the 0G editor on the user\'s project.',
         'Investigate before you edit. Read the files you intend to change — never guess their contents.',
@@ -109,8 +130,24 @@ export const useAgent = create<AgentState>((set, get) => {
         for (let step = 0; step < MAX_STEPS; step++) {
           if (cancelled) return
 
-          const prompt = `${system}\n\n${transcript.join('\n\n')}\n\n[YOUR TURN]`
-          const res = await invoke<{ text: string; model: string }>('ai_raw', { prompt })
+          // Budget the transcript BEFORE sending. It is resent on every step, so
+          // an unbounded one multiplies token cost by the step count — that, not
+          // request frequency, is what trips a provider's per-minute ceiling.
+          const budgeted = trimTranscript(transcript)
+          const prompt = `${system}\n\n${budgeted.join('\n\n')}\n\n[YOUR TURN]`
+
+          // A rate limit is a wait, not a failure: back off once and retry before
+          // giving up, so a busy free tier can't kill a run mid-investigation.
+          let res: { text: string; model: string } | undefined
+          try {
+            res = await invoke<{ text: string; model: string }>('ai_raw', { prompt })
+          } catch (e) {
+            if (!isRateLimit(e)) throw e
+            push('result', 'Rate limited — waiting 20s, then retrying')
+            await sleep(20_000)
+            if (cancelled) return
+            res = await invoke<{ text: string; model: string }>('ai_raw', { prompt })
+          }
           if (cancelled) return
 
           const text = res?.text ?? ''
@@ -156,7 +193,7 @@ export const useAgent = create<AgentState>((set, get) => {
         push('error', `Stopped after ${MAX_STEPS} steps without finishing`)
         set({ running: false })
       } catch (e) {
-        push('error', 'Run failed', String(e))
+        push('error', 'Run failed', friendlyError(e))
         set({ running: false })
       }
     },
