@@ -153,3 +153,26 @@ mod tests {
         let _ = head(&s, 100);
     }
 }
+
+/// Send a one-token probe to a specific model configuration.
+///
+/// Exists so a user can verify a key BEFORE relying on it. Without this the only
+/// way to learn a key is wrong is to watch the rotation silently fall through to
+/// a backup mid-task — which is how a bad key survives all the way to a demo.
+///
+/// Deliberately takes an explicit config rather than reading the stored one, so
+/// an unsaved key can be tested before it is committed to.
+#[tauri::command]
+pub async fn test_model(
+    config: crate::types::ModelConfig,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let client = Arc::clone(&state.model_client);
+    match client
+        .invoke(&config, "Reply with the single word: ok")
+        .await
+    {
+        Ok(text) => Ok(text.trim().chars().take(60).collect()),
+        Err(e) => Err(e.to_string()),
+    }
+}

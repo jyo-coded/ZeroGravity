@@ -40,6 +40,12 @@ pub fn caps_for(provider: &str) -> (Option<u32>, Option<u32>) {
     match provider {
         "groq" => (Some(30), None),
         "openrouter" => (Some(20), Some(200)),
+        // Gemini's free tier is quota'd per DAY, not per minute - the reason it
+        // survives a multi-step agent run where a per-minute cap does not.
+        "google" => (None, Some(1500)),
+        "cerebras" => (Some(30), None),
+        // Local and paid endpoints have no free-tier cap worth guessing at.
+        "ollama" | "ollama-cloud" | "anthropic" | "openai" => (None, None),
         _ => (None, None),
     }
 }
@@ -132,6 +138,9 @@ pub async fn invoke_with_failover(
     }
 
     let total = candidates.len();
+    // Collect every candidate's failure. Reporting only the last one hides the
+    // reason the PRIMARY failed, which is the thing the user actually needs.
+    let mut failures: Vec<String> = Vec::new();
     let mut last_err = String::from("No model configured");
 
     for i in 0..total {
@@ -149,6 +158,7 @@ pub async fn invoke_with_failover(
                 }),
             );
             last_err = format!("{} is at its rate cap", cand.provider);
+            failures.push(format!("{}: at its rate cap", cand.label));
             continue;
         }
 
@@ -179,12 +189,19 @@ pub async fn invoke_with_failover(
                         json!({ "from": cand.label, "to": to, "reason": reason }),
                     );
                 }
+                failures.push(format!("{}: {}", cand.label, msg));
                 last_err = msg;
             }
         }
     }
 
-    Err(last_err)
+    Err(if failures.len() > 1 {
+        // Every model in the chain failed - name each one and why, so the user
+        // can tell a bad key from an exhausted quota at a glance.
+        format!("All {} models failed. {}", failures.len(), failures.join(" | "))
+    } else {
+        last_err
+    })
 }
 
 /// Streaming variant: failover only happens BEFORE the first chunk arrives —
@@ -213,6 +230,9 @@ pub async fn invoke_with_failover_stream(
     }
 
     let total = candidates.len();
+    // Collect every candidate's failure. Reporting only the last one hides the
+    // reason the PRIMARY failed, which is the thing the user actually needs.
+    let mut failures: Vec<String> = Vec::new();
     let mut last_err = String::from("No model configured");
 
     for i in 0..total {
@@ -229,6 +249,7 @@ pub async fn invoke_with_failover_stream(
                 }),
             );
             last_err = format!("{} is at its rate cap", cand.provider);
+            failures.push(format!("{}: at its rate cap", cand.label));
             continue;
         }
 
@@ -267,6 +288,7 @@ pub async fn invoke_with_failover_stream(
                         json!({ "from": cand.label, "to": to, "reason": reason }),
                     );
                 }
+                failures.push(format!("{}: {}", cand.label, msg));
                 last_err = msg;
             }
             Err(e) => {
@@ -275,7 +297,13 @@ pub async fn invoke_with_failover_stream(
         }
     }
 
-    Err(last_err)
+    Err(if failures.len() > 1 {
+        // Every model in the chain failed - name each one and why, so the user
+        // can tell a bad key from an exhausted quota at a glance.
+        format!("All {} models failed. {}", failures.len(), failures.join(" | "))
+    } else {
+        last_err
+    })
 }
 
 /// Seed persisted day-counts (frontend localStorage survives restarts; the

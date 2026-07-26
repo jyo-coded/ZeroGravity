@@ -11,9 +11,10 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
-import { GripVertical, X, Play, Plus } from 'lucide-react'
+import { GripVertical, X, Play, Plus, Activity } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import * as api from '../../lib/api'
+import { invoke } from '@tauri-apps/api/core'
 import type { ModelConfig, ModelProvider } from '../../lib/types'
 import { PROVIDER_PRESETS, presetFor } from '../../lib/modelPresets'
 
@@ -27,6 +28,24 @@ export function ModelPill() {
   const [addProvider, setAddProvider] = useState<ModelProvider>('google')
   const [addModel, setAddModel] = useState(presetFor('google').models[0] ?? '')
   const [addKey, setAddKey] = useState('')
+
+  // Connection test. Verifying a key here is the difference between finding a
+  // bad key now and discovering it mid-demo when the rotation quietly falls
+  // through to a backup.
+  const [probe, setProbe] = useState<Record<string, string>>({})
+
+  const testModel = async (cfg: ModelConfig) => {
+    const id = `${cfg.provider}:${cfg.model_name}`
+    setProbe((p) => ({ ...p, [id]: 'testing…' }))
+    try {
+      await invoke<string>('test_model', { config: cfg })
+      setProbe((p) => ({ ...p, [id]: 'ok' }))
+    } catch (e) {
+      // Keep the provider's own words — "API key not valid" and "quota exceeded"
+      // need completely different fixes.
+      setProbe((p) => ({ ...p, [id]: String(e).slice(0, 140) }))
+    }
+  }
 
   useEffect(() => {
     if (!open) return
@@ -107,7 +126,15 @@ export function ModelPill() {
                   <div className="w-1.5 h-1.5 rounded-full bg-green" style={{ boxShadow: '0 0 5px rgba(0,255,136,0.5)' }} />
                   <span className="text-[12px] font-mono text-text-primary truncate">{modelConfig.label}</span>
                   <span className="text-[12px] font-mono text-purple-light ml-auto shrink-0">{modelConfig.provider}</span>
+                  <button
+                    onClick={() => testModel(modelConfig)}
+                    className="p-0.5 text-text-muted hover:text-cyan shrink-0"
+                    title="Send a one-token probe to check this key works"
+                  >
+                    <Activity size={11} />
+                  </button>
                 </div>
+                <ProbeResult result={probe[`${modelConfig.provider}:${modelConfig.model_name}`]} />
               </div>
 
               {/* Rotation list */}
@@ -137,6 +164,9 @@ export function ModelPill() {
                       <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                         <button onClick={() => promote(i)} className="p-0.5 text-text-muted hover:text-green" title="Make primary (swaps with current)">
                           <Play size={10} />
+                        </button>
+                        <button onClick={() => testModel(m)} className="p-0.5 text-text-muted hover:text-cyan" title="Test this key">
+                          <Activity size={10} />
                         </button>
                         <button onClick={() => remove(i)} className="p-0.5 text-text-muted hover:text-red" title="Remove">
                           <X size={10} />
@@ -226,5 +256,26 @@ export function ModelPill() {
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+/**
+ * Outcome of a connection probe.
+ *
+ * Shows the provider's own error text rather than a generic "failed": an invalid
+ * key, an unknown model name, and an exhausted quota look identical in a summary
+ * and need completely different fixes.
+ */
+function ProbeResult({ result }: { result?: string }) {
+  if (!result) return null
+  const ok = result === 'ok'
+  const testing = result === 'testing…'
+  return (
+    <p
+      className="text-[11px] font-mono mt-1 break-words"
+      style={{ color: testing ? 'var(--text-muted)' : ok ? 'var(--success)' : 'var(--danger)' }}
+    >
+      {testing ? 'testing…' : ok ? '✓ responding' : result}
+    </p>
   )
 }
