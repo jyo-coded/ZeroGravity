@@ -1,17 +1,16 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Key, Globe, Cpu, ChevronDown } from 'lucide-react'
+import { Key, Globe, Cpu, ChevronDown, Layers, Check } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import * as api from '../../lib/api'
 import type { ModelConfig, ModelProvider } from '../../lib/types'
 import {
   PROVIDER_PRESETS as PROVIDERS, presetFor, DEFAULT_PROVIDER, DEFAULT_MODEL,
+  recommendedChain,
 } from '../../lib/modelPresets'
 
 export function OnboardingModel() {
-  const { setModelConfig, setView } = useAppStore()
-  // B3: Groq llama-3.3-70b is the first-run default — zero cost, zero local
-  // hardware, and (unlike the old 1.5B local default) it actually works.
+  const { setModelConfig, setRotationList, setView } = useAppStore()
   // Gemini Flash is the first-run default: free, multimodal, and quota'd per day
   // rather than per minute — the per-minute ceiling is what broke agent runs.
   const [provider, setProvider] = useState<ModelProvider>(DEFAULT_PROVIDER)
@@ -21,6 +20,36 @@ export function OnboardingModel() {
   const [customModel, setCustomModel] = useState('')
   const [ollamaModels, setOllamaModels] = useState<{ name: string; size?: number }[]>([])
   const [ollamaStatus, setOllamaStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle')
+
+  // ── Recommended stack ──────────────────────────────────────────────────
+  // A failover chain rather than one model: quality first, then speed, then a
+  // local model that cannot be rate limited. Only Gemini is required; the rest
+  // are optional links the user can add now or later from the model pill.
+  const [stackMode, setStackMode] = useState(true)
+  const [geminiKey, setGeminiKey] = useState('')
+  const [cerebrasKey, setCerebrasKey] = useState('')
+  const [localModel, setLocalModel] = useState('')
+  const [applying, setApplying] = useState(false)
+
+  const stack = recommendedChain({
+    gemini: geminiKey,
+    cerebras: cerebrasKey,
+    ollamaModel: localModel,
+  })
+
+  async function applyStack() {
+    if (stack.length === 0) return
+    setApplying(true)
+    try {
+      // First link is the primary; the rest become the ordered failover list,
+      // which is exactly the shape rotation.rs already consumes.
+      await setModelConfig(stack[0])
+      await setRotationList(stack.slice(1))
+      setView('onboarding_project')
+    } finally {
+      setApplying(false)
+    }
+  }
 
   // B2: When Ollama is selected, detect local models via the backend
   // (avoids webview CORS issues with the tauri:// origin)
@@ -91,6 +120,101 @@ export function OnboardingModel() {
           <p className="text-xs text-text-muted uppercase tracking-widest font-semibold">
             Step 2 of 3 — Model
           </p>
+
+          {stackMode ? (
+            <>
+              {/* Recommended stack — a failover chain, not a single model. Only
+                  the first key is required; the others make the chain resilient. */}
+              <div className="rounded-xl border border-accent/25 bg-accent/[0.05] p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Layers size={14} className="text-accent" />
+                  <span className="text-sm font-semibold text-text-primary">Recommended setup</span>
+                </div>
+                <p className="text-xs text-text-muted leading-relaxed">
+                  0G falls back down this chain automatically, so one provider running out
+                  never stops the editor. Add what you have — you can add the rest later.
+                </p>
+
+                <StackField
+                  label="Gemini API key"
+                  required
+                  note="Free, multimodal, daily quota. The primary model."
+                  linkLabel="Get a key"
+                  href="https://aistudio.google.com/apikey"
+                  value={geminiKey}
+                  onChange={setGeminiKey}
+                  placeholder="AIza..."
+                  type="password"
+                />
+                <StackField
+                  label="Cerebras API key"
+                  note="Optional — fastest free tier, ~1M tokens/day. First fallback."
+                  linkLabel="Get a key"
+                  href="https://cloud.cerebras.ai"
+                  value={cerebrasKey}
+                  onChange={setCerebrasKey}
+                  placeholder="csk-..."
+                  type="password"
+                />
+                <StackField
+                  label="Local Ollama model"
+                  note="Optional — never rate limited, works offline. Final fallback."
+                  value={localModel}
+                  onChange={setLocalModel}
+                  placeholder="qwen3-coder:30b"
+                />
+
+                {/* Show the chain being built, so the fallback order is obvious
+                    before committing to it rather than a surprise later. */}
+                {stack.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    {stack.map((m, i) => (
+                      <span key={m.label} className="flex items-center gap-1.5">
+                        {i > 0 && <span className="text-text-muted text-xs">→</span>}
+                        <span
+                          className="text-xs px-2 py-0.5 rounded-full"
+                          style={{
+                            background: i === 0 ? 'rgba(56,189,248,0.14)' : 'rgba(255,255,255,0.05)',
+                            border: '1px solid rgba(150,190,255,0.18)',
+                            color: i === 0 ? 'var(--accent)' : 'var(--text-secondary)',
+                          }}
+                        >
+                          {m.label}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={applyStack}
+                disabled={stack.length === 0 || applying}
+                className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Check size={14} />
+                {applying
+                  ? 'Setting up…'
+                  : stack.length > 1
+                    ? `Use this stack (${stack.length} models)`
+                    : 'Use this stack'}
+              </button>
+
+              <button
+                onClick={() => setStackMode(false)}
+                className="w-full text-xs text-text-muted hover:text-text-secondary transition-colors"
+              >
+                Or configure a single model manually
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setStackMode(true)}
+                className="w-full text-xs text-accent hover:brightness-125 transition-all text-left"
+              >
+                ← Back to the recommended setup
+              </button>
 
           {/* Provider */}
           <div>
@@ -262,19 +386,80 @@ export function OnboardingModel() {
           )}
 
           <div className="flex gap-3 pt-2">
-            <button onClick={() => setView('onboarding_identity')} className="btn-ghost flex-1 justify-center py-2.5 rounded-xl text-sm">
+                <button onClick={() => setView('onboarding_identity')} className="btn-ghost flex-1 justify-center py-2.5 rounded-xl text-sm">
+                  Back
+                </button>
+                <button
+                  onClick={proceed}
+                  disabled={!canContinue}
+                  className="btn-primary flex-1 justify-center py-2.5 rounded-xl text-sm disabled:opacity-40"
+                >
+                  Continue
+                </button>
+              </div>
+            </>
+          )}
+
+          {stackMode && (
+            <button
+              onClick={() => setView('onboarding_identity')}
+              className="btn-ghost w-full justify-center py-2.5 rounded-xl text-sm"
+            >
               Back
             </button>
-            <button
-              onClick={proceed}
-              disabled={!canContinue}
-              className="btn-primary flex-1 justify-center py-2.5 rounded-xl text-sm disabled:opacity-40"
-            >
-              Continue
-            </button>
-          </div>
+          )}
         </div>
       </motion.div>
+    </div>
+  )
+}
+
+/**
+ * One row of the recommended-stack form.
+ *
+ * Each field states what the key buys and where to get it, because the reason a
+ * first-run setup stalls is almost never the typing — it is not knowing whether
+ * a field is required or where the key comes from.
+ */
+function StackField({
+  label, note, value, onChange, placeholder, type = 'text', required, href, linkLabel,
+}: {
+  label: string
+  note: string
+  value: string
+  onChange: (v: string) => void
+  placeholder: string
+  type?: 'text' | 'password'
+  required?: boolean
+  href?: string
+  linkLabel?: string
+}) {
+  return (
+    <div>
+      <div className="flex items-baseline gap-2 mb-1">
+        <label className="text-xs font-medium text-text-secondary">{label}</label>
+        {required && <span className="text-xs text-accent">required</span>}
+        {href && (
+          <a
+            href={href}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="ml-auto text-xs"
+            style={{ color: 'var(--accent)' }}
+          >
+            {linkLabel} →
+          </a>
+        )}
+      </div>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="input-field font-mono text-xs"
+        spellCheck={false}
+      />
+      <p className="text-xs text-text-muted mt-1">{note}</p>
     </div>
   )
 }
