@@ -27,6 +27,7 @@ export function installDevTauriShim() {
         return { is_repo: false, branch: '', upstream: null, ahead: 0, behind: 0, changes: [] }
       }
       if (cmd === 'git_branches') return { current: '', local: [] }
+      if (cmd === 'revert_session') return []
       if (/^git_/.test(cmd)) return []
       if (/tree|list|recent|search|collaborators|usage|rotation|skills/i.test(cmd)) return []
       if (/graph/i.test(cmd)) return { nodes: [], edges: [] }

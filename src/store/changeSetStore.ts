@@ -177,6 +177,9 @@ export const useChangeSet = create<ChangeSetState>((set, get) => ({
           Array.from({ length: Math.max(h.newLines.length, 1) }, (_, i) => h.oldStart + i),
         ),
         affected_functions: [],
+        // Tag every file in this review with the change-set id, so the whole run
+        // is one group in the ledger and can be undone in a single action.
+        session_id: cs.id,
       })
       app.addChangelogEntry(entry)
 

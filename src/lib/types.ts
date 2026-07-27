@@ -14,6 +14,8 @@ export interface ChangelogEntry {
   previous_content?: string
   status: EntryStatus
   conflict_flag: boolean
+  /** Groups all writes from one agent run so the run can be undone as a unit. */
+  session_id?: string | null
 }
 
 // 'cerebras' and 'ollama-cloud' are OpenAI-compatible endpoints: the Rust model
@@ -127,6 +129,8 @@ export interface CommitWritePayload {
   summary: string
   affected_lines: number[]
   affected_functions: string[]
+  /** Set to the change-set id when this write is part of an agent run. */
+  session_id?: string | null
 }
 
 export interface InvokeAiPayload {

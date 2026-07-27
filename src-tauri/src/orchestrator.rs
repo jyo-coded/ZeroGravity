@@ -410,6 +410,7 @@ impl Orchestrator {
             previous_content,
             status: EntryStatus::Committed,
             conflict_flag,
+            session_id: payload.session_id,
         };
 
         changelog.append(entry.clone()).await?;

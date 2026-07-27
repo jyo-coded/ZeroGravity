@@ -281,6 +281,7 @@ mod tests {
             previous_content: prev.map(|s| s.to_string()),
             status: EntryStatus::Committed,
             conflict_flag: false,
+            session_id: None,
         }
     }
 

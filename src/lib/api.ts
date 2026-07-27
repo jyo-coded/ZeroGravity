@@ -197,11 +197,17 @@ export async function commitWrite(payload: CommitWritePayload): Promise<Changelo
     summary: payload.summary,
     affectedLines: payload.affected_lines,
     affectedFunctions: payload.affected_functions,
+    sessionId: payload.session_id ?? null,
   })
 }
 
 export async function revertFile(entryId: string): Promise<ChangelogEntry> {
   return invoke('revert_file', { entryId })
+}
+
+/** Undo an entire agent run — restores every file it touched to its pre-run state. */
+export async function revertSession(sessionId: string): Promise<ChangelogEntry[]> {
+  return invoke('revert_session', { sessionId })
 }
 
 // Conflict resolution — remote writes held back because the local copy diverged.

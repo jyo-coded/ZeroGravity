@@ -617,6 +617,7 @@ pub async fn create_file(
         previous_content: None,
         status: EntryStatus::Committed,
         conflict_flag: false,
+        session_id: None,
     };
 
     let mut cl_lock = state.changelog.lock().await;
@@ -637,6 +638,7 @@ pub async fn commit_write(
     summary: String,
     affected_lines: Vec<u32>,
     affected_functions: Vec<String>,
+    session_id: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<ChangelogEntry, String> {
     let identity_lock = state.identity.lock().await;
@@ -673,6 +675,7 @@ pub async fn commit_write(
         summary,
         affected_lines,
         affected_functions,
+        session_id,
     };
 
     let mut cl_lock = state.changelog.lock().await;
@@ -1103,6 +1106,7 @@ pub async fn apply_code(
         summary: "Applied AI snippet via merge".to_string(),
         affected_lines: vec![],
         affected_functions: vec![],
+        session_id: None,
     };
 
     let mut cl_lock = state.changelog.lock().await;
@@ -1322,6 +1326,7 @@ pub async fn revert_file(
         summary: format!("Reverted changes from entry {}", entry_id),
         affected_lines: vec![],
         affected_functions: vec![],
+        session_id: None,
     };
 
     let orchestrator = Arc::clone(&state.orchestrator);
@@ -1336,6 +1341,149 @@ pub async fn revert_file(
         .await;
 
     Ok(entry)
+}
+
+/// Undo an entire agent run in one action.
+///
+/// A run can touch many files; reverting them one entry at a time is both tedious
+/// and wrong — reverting the *latest* entry for a file only rewinds its last
+/// write, not the run's first touch. So for each file the run changed we take the
+/// EARLIEST entry in the session, whose `previous_content` is the file's state
+/// before the run began, and restore that. Files the run created (no prior
+/// content) are removed. Every restore flows through the orchestrator and the
+/// ledger, so the undo is itself an attributed, revertible change — and syncs to
+/// peers like any other.
+#[tauri::command]
+pub async fn revert_session(
+    session_id: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<ChangelogEntry>, String> {
+    let identity_lock = state.identity.lock().await;
+    let (username, model_label) = match (&*identity_lock, state.model_config.lock().await.clone()) {
+        (Some(id), Some(mc)) => (id.username.clone(), mc.label.clone()),
+        _ => return Err("Identity or model not configured".into()),
+    };
+    drop(identity_lock);
+
+    let root = state
+        .project
+        .lock()
+        .await
+        .as_ref()
+        .map(|p| PathBuf::from(&p.root_path))
+        .ok_or("No project open")?;
+
+    let manifest_path = root.join(".0g").join("manifest.json");
+    if let Ok(manifest_data) = tokio::fs::read_to_string(&manifest_path).await {
+        if let Ok(manifest) = serde_json::from_str::<ProjectManifest>(&manifest_data) {
+            if let Some(member) = manifest.members.iter().find(|m| m.username == username) {
+                if member.permission == Permission::Read {
+                    return Err(
+                        "PermissionDenied: You have view-only access to this project.".into(),
+                    );
+                }
+            }
+        }
+    }
+
+    let mut cl_lock = state.changelog.lock().await;
+    let changelog = cl_lock.as_mut().ok_or("Changelog not initialized")?;
+
+    // Earliest entry per file in this session = that file's pre-run baseline.
+    let mut baseline: HashMap<String, ChangelogEntry> = HashMap::new();
+    for e in changelog.all_entries() {
+        if e.session_id.as_deref() == Some(session_id.as_str()) {
+            baseline
+                .entry(e.file.clone())
+                .and_modify(|cur| {
+                    if e.timestamp < cur.timestamp {
+                        *cur = e.clone();
+                    }
+                })
+                .or_insert_with(|| e.clone());
+        }
+    }
+    if baseline.is_empty() {
+        return Err("No changes found for that agent run".into());
+    }
+
+    // Deterministic order so the ledger reads cleanly and tests are stable.
+    let mut files: Vec<ChangelogEntry> = baseline.into_values().collect();
+    files.sort_by(|a, b| a.file.cmp(&b.file));
+
+    let mut reverted = Vec::new();
+    let mut stale: Vec<String> = Vec::new();
+
+    for base in files {
+        match base.previous_content.clone() {
+            Some(prev) => {
+                let payload = CommitWritePayload {
+                    file: base.file.clone(),
+                    content: prev.clone(),
+                    summary: format!("Undo agent run · {}", base.summary),
+                    affected_lines: vec![],
+                    affected_functions: vec![],
+                    session_id: None,
+                };
+                let entry = state
+                    .orchestrator
+                    .intercept_write(
+                        payload,
+                        username.clone(),
+                        model_label.clone(),
+                        changelog,
+                        root.clone(),
+                    )
+                    .await
+                    .map_err(|e| e.to_string())?;
+                state.network.broadcast_update(entry.clone(), prev).await;
+                reverted.push(entry);
+            }
+            None => {
+                // No prior content. Either the run created the file (undo = delete
+                // it) or the snapshot was pruned from the ledger (can't restore).
+                let abs = root.join(&base.file);
+                if abs.exists() {
+                    if tokio::fs::remove_file(&abs).await.is_err() {
+                        stale.push(base.file.clone());
+                        continue;
+                    }
+                    let entry = ChangelogEntry {
+                        id: crate::changelog::new_entry_id(),
+                        file: base.file.clone(),
+                        changed_by: username.clone(),
+                        model: model_label.clone(),
+                        timestamp: Utc::now(),
+                        summary: "Undo agent run · removed created file".to_string(),
+                        affected_lines: vec![],
+                        affected_functions: vec![],
+                        previous_content: None,
+                        status: EntryStatus::Committed,
+                        conflict_flag: false,
+                        session_id: None,
+                    };
+                    changelog
+                        .append(entry.clone())
+                        .await
+                        .map_err(|e| e.to_string())?;
+                    state.network.broadcast_delete(entry.clone()).await;
+                    reverted.push(entry);
+                } else {
+                    stale.push(base.file.clone());
+                }
+            }
+        }
+    }
+
+    if reverted.is_empty() {
+        return Err(format!(
+            "This run is too old to undo automatically — its pre-change snapshots have been pruned from the ledger ({} file{}).",
+            stale.len(),
+            if stale.len() == 1 { "" } else { "s" }
+        ));
+    }
+
+    Ok(reverted)
 }
 
 // ─── File operations (A1) ─────────────────────────────────────────────────────
@@ -1429,6 +1577,7 @@ pub async fn delete_path(
                 previous_content,
                 status: EntryStatus::Committed,
                 conflict_flag: false,
+                session_id: None,
             };
             changelog
                 .append(entry.clone())
@@ -1493,6 +1642,7 @@ pub async fn rename_path(
         previous_content: None,
         status: EntryStatus::Committed,
         conflict_flag: false,
+        session_id: None,
     };
 
     let mut cl_lock = state.changelog.lock().await;
@@ -1821,6 +1971,7 @@ pub async fn replace_in_files(
             summary: format!("Find & Replace ({} match{})", count, if count == 1 { "" } else { "es" }),
             affected_lines: ts.iter().map(|t| t.line).collect(),
             affected_functions: vec![],
+            session_id: None,
         };
 
         let mut cl_lock = state.changelog.lock().await;

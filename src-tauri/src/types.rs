@@ -22,6 +22,12 @@ pub struct ChangelogEntry {
     pub previous_content: Option<String>,
     pub status: EntryStatus,
     pub conflict_flag: bool,
+    /// Groups every write from a single agent run under one id, so the whole run
+    /// can be reviewed and undone as a unit. `None` for ordinary human saves,
+    /// reverts, and file ops. `#[serde(default)]` keeps changelogs written before
+    /// this field readable.
+    #[serde(default)]
+    pub session_id: Option<String>,
 }
 
 /// A remote write that could not be applied blindly because the local copy has
@@ -90,6 +96,9 @@ pub struct CommitWritePayload {
     pub summary: String,
     pub affected_lines: Vec<u32>,
     pub affected_functions: Vec<String>,
+    /// Set when this write belongs to an agent run; carried onto the ledger entry.
+    #[serde(default)]
+    pub session_id: Option<String>,
 }
 
 /// Payload from Tauri command for AI invocation

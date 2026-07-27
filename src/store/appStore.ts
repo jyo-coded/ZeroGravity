@@ -170,6 +170,7 @@ interface AppState {
   lastApplyEntryId: string | null
   revertLastApply: () => Promise<void>
   revertEntry: (entryId: string) => Promise<void>
+  revertRun: (sessionId: string) => Promise<void>
 
   notifications: Notification[]
   addNotification: (n: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void
@@ -1172,6 +1173,26 @@ export const useAppStore = create<AppState>((set, get) => {
       if (!lastApplyEntryId) return
       await revertEntry(lastApplyEntryId)
       set({ lastApplyEntryId: null })
+    },
+
+    revertRun: async (sessionId) => {
+      const { activeFile, openFile, loadFileTree, addNotification, addChangelogEntry } = get()
+      try {
+        set({ isAiWriting: true })
+        const entries = await api.revertSession(sessionId)
+        entries.forEach((e) => addChangelogEntry(normalizeEntry(e)))
+        await loadFileTree()
+        if (activeFile) await openFile(activeFile)
+        addNotification({
+          type: 'change',
+          detail: 'Agent run undone',
+          message: `Restored ${entries.length} file${entries.length === 1 ? '' : 's'} to the state before the run`,
+        })
+      } catch (e: any) {
+        addNotification({ type: 'error', detail: 'Undo failed', message: e.toString() })
+      } finally {
+        set({ isAiWriting: false })
+      }
     },
 
     isAiWriting: false,
