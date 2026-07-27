@@ -6,6 +6,7 @@ mod changelog;
 mod commands;
 mod completion;
 mod context_scanner;
+mod dap;
 mod git;
 mod graph;
 mod lsp;
@@ -35,6 +36,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .manage(AppState::new())
         .manage(TerminalState::default())
+        .manage(dap::DapState::default())
         .invoke_handler(tauri::generate_handler![
             commands::save_identity,
             commands::load_identity,
@@ -99,6 +101,11 @@ pub fn run() {
             completion::ai_complete,
             completion::test_model,
             completion::list_models,
+            dap::dap_start,
+            dap::dap_request,
+            dap::dap_stop,
+            dap::dap_running,
+            dap::dap_check,
             commands::list_conflicts,
             commands::dismiss_conflict,
             commands::revert_session,

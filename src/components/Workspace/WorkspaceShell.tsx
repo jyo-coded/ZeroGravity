@@ -51,6 +51,7 @@ export function WorkspaceShell({ children }: { children?: React.ReactNode }) {
           case 'f': e.preventDefault(); setSidebarView('search'); return
           case 'o': e.preventDefault(); setSidebarView('outline'); return
           case 'g': e.preventDefault(); setSidebarView('git'); return
+          case 'd': e.preventDefault(); setSidebarView('debug'); return
           case 'm': e.preventDefault(); showBottom('problems'); return
           case 'a': e.preventDefault(); toggleAi(); return
           case 'p': e.preventDefault(); setQuickOpen('commands'); return

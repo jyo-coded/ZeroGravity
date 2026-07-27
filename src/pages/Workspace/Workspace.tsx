@@ -11,6 +11,8 @@ import { handleCrdtMessage, removePeer, isBound } from '../../lib/crdt'
 import { parseEditBlocks } from '../../lib/editProtocol'
 import { useChangeSet } from '../../store/changeSetStore'
 import { useConflicts } from '../../store/conflictStore'
+import { useDebug } from '../../store/debugStore'
+import { onDapEvent } from '../../lib/dapApi'
 import { StarField } from '../../components/Background/StarField'
 import { NebulaLayer } from '../../components/Background/NebulaLayer'
 import { WorkspaceShell } from '../../components/Workspace/WorkspaceShell'
@@ -77,6 +79,13 @@ export function Workspace() {
       listenerCleanups.forEach((p) => p.then((fn) => fn()).catch(() => {}))
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Debug adapter events (stopped, output, terminated, …) drive the debug store.
+  // Registered once for the workspace; the handler reads state via getState().
+  useEffect(() => {
+    const un = onDapEvent((e) => { useDebug.getState().ingest(e) })
+    return () => { un.then((fn) => fn()).catch(() => {}) }
+  }, [])
 
   // External fs changes: refresh tree, reload clean buffers.
   useEffect(() => {

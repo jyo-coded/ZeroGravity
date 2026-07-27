@@ -1,4 +1,4 @@
-import { Files, Search, ListTree, GitBranch, ShieldCheck, Users, AlertTriangle, Settings, PanelBottom } from 'lucide-react'
+import { Files, Search, ListTree, GitBranch, Bug, ShieldCheck, Users, AlertTriangle, Settings, PanelBottom } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import { useLayoutStore, type SidebarView } from '../../store/layoutStore'
 
@@ -32,6 +32,7 @@ export function ActivityBar() {
     { id: 'search', label: 'Search', icon: <Search size={19} />, hint: 'Ctrl+Shift+F' },
     { id: 'outline', label: 'Outline', icon: <ListTree size={19} />, hint: 'Ctrl+Shift+O' },
     { id: 'git', label: 'Source Control', icon: <GitBranch size={19} />, hint: 'Ctrl+Shift+G' },
+    { id: 'debug', label: 'Run and Debug', icon: <Bug size={19} />, hint: 'Ctrl+Shift+D' },
     { id: 'ledger', label: 'Ledger', icon: <ShieldCheck size={19} />, hint: 'Verified change history', badge: changelogCount || undefined, badgeTone: 'info' },
     { id: 'team', label: 'Team', icon: <Users size={19} />, hint: 'Peers & chat', badge: teamUnread || undefined, badgeTone: 'info' },
     { id: 'problems', label: 'Problems', icon: <AlertTriangle size={19} />, hint: 'Ctrl+Shift+M', badge: problemCount || undefined, badgeTone: 'error' },

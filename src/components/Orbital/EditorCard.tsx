@@ -19,6 +19,9 @@ import { getFileLanguage, basename } from '../../lib/utils'
 import { registerLspProviders, lspOpen, lspChange, lspClose } from '../../lib/lsp'
 import { registerInlineCompletion } from '../../lib/inlineCompletion'
 import { bindEditor, unbind } from '../../lib/crdt'
+import { useDebug } from '../../store/debugStore'
+
+const NO_BREAKPOINTS: number[] = []
 
 let formattersRegistered = false
 function registerCliFormatters(monaco: typeof Monaco) {
@@ -55,6 +58,10 @@ export function EditorCard() {
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof Monaco | null>(null)
   const gitDecosRef = useRef<string[]>([])
+  const dapDecosRef = useRef<string[]>([])
+  // Breakpoints for THIS file plus the current paused line — drive the gutter.
+  const breakpoints = useDebug((s) => s.breakpoints[activeFile ?? ''] ?? NO_BREAKPOINTS)
+  const stopped = useDebug((s) => s.stopped)
   const vimRef = useRef<{ dispose(): void } | null>(null)
   const vimStatusRef = useRef<HTMLDivElement>(null)
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 })
@@ -182,11 +189,45 @@ export function EditorCard() {
     return () => { cancelled = true }
   }, [activeFile, lastSavedContent])
 
+  // Debug gutter — breakpoint glyphs and the current paused line. Rendered as
+  // decorations (not widgets) so they survive scroll and edits like git markers.
+  useEffect(() => {
+    const ed = editorRef.current, monaco = monacoRef.current
+    if (!ed || !monaco || !activeFile) return
+    const decos: Monaco.editor.IModelDeltaDecoration[] = breakpoints.map((line) => ({
+      range: new monaco.Range(line, 1, line, 1),
+      options: {
+        glyphMarginClassName: 'dap-breakpoint',
+        glyphMarginHoverMessage: { value: 'Breakpoint' },
+        stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+      },
+    }))
+    if (stopped && stopped.path === activeFile) {
+      decos.push({
+        range: new monaco.Range(stopped.line, 1, stopped.line, 1),
+        options: {
+          isWholeLine: true,
+          className: 'dap-stopline',
+          glyphMarginClassName: 'dap-stopglyph',
+        },
+      })
+    }
+    dapDecosRef.current = ed.deltaDecorations(dapDecosRef.current, decos)
+  }, [activeFile, breakpoints, stopped, editorReady])
+
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
     monacoRef.current = monaco
     setEditorReady(true)
     registerCliFormatters(monaco)
+    // Click the glyph margin to toggle a breakpoint on that line.
+    editor.onMouseDown((e) => {
+      if (e.target.type === monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN) {
+        const line = e.target.position?.lineNumber
+        const path = useAppStore.getState().activeFile
+        if (line && path) useDebug.getState().toggleBreakpoint(path, line)
+      }
+    })
     registerLspProviders(monaco)
     registerInlineCompletion(monaco)
     editor.onDidChangeCursorPosition((e) => setCursorPos({ line: e.position.lineNumber, col: e.position.column }))
@@ -202,7 +243,7 @@ export function EditorCard() {
     editor.updateOptions({
       automaticLayout: true, autoIndent: 'full', fontSize: 12.5,
       fontFamily: "'IBM Plex Mono','JetBrains Mono',monospace", fontLigatures: true,
-      minimap: { enabled: false }, lineNumbers: 'on', scrollBeyondLastLine: false,
+      minimap: { enabled: false }, lineNumbers: 'on', scrollBeyondLastLine: false, glyphMargin: true,
       smoothScrolling: true, cursorBlinking: 'smooth', cursorSmoothCaretAnimation: 'on',
       renderLineHighlight: 'gutter', padding: { top: 10, bottom: 10 }, overviewRulerLanes: 0,
       hideCursorInOverviewRuler: true, scrollbar: { verticalScrollbarSize: 5, horizontalScrollbarSize: 5 },

@@ -28,6 +28,8 @@ export function installDevTauriShim() {
       }
       if (cmd === 'git_branches') return { current: '', local: [] }
       if (cmd === 'revert_session') return []
+      if (cmd === 'dap_running') return false
+      if (/^dap_/.test(cmd)) return null // no debugger in a plain browser
       if (/^git_/.test(cmd)) return []
       if (/tree|list|recent|search|collaborators|usage|rotation|skills/i.test(cmd)) return []
       if (/graph/i.test(cmd)) return { nodes: [], edges: [] }
