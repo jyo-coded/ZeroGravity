@@ -204,6 +204,27 @@ export async function revertFile(entryId: string): Promise<ChangelogEntry> {
   return invoke('revert_file', { entryId })
 }
 
+// Conflict resolution — remote writes held back because the local copy diverged.
+
+export interface ConflictInfo {
+  id: string
+  file: string
+  base: string | null
+  ours: string
+  theirs: string
+  their_user: string
+  their_summary: string
+  their_model: string
+}
+
+export async function listConflicts(): Promise<ConflictInfo[]> {
+  return invoke('list_conflicts')
+}
+
+export async function dismissConflict(id: string): Promise<void> {
+  return invoke('dismiss_conflict', { id })
+}
+
 // Changelog
 
 export async function getChangelog(payload: GetChangelogPayload = {}): Promise<ChangelogEntry[]> {

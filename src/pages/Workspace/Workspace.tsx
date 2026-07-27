@@ -10,9 +10,11 @@ import * as api from '../../lib/api'
 import { handleCrdtMessage, removePeer, isBound } from '../../lib/crdt'
 import { parseEditBlocks } from '../../lib/editProtocol'
 import { useChangeSet } from '../../store/changeSetStore'
+import { useConflicts } from '../../store/conflictStore'
 import { StarField } from '../../components/Background/StarField'
 import { NebulaLayer } from '../../components/Background/NebulaLayer'
 import { WorkspaceShell } from '../../components/Workspace/WorkspaceShell'
+import { ConflictResolver } from '../../components/Conflict/ConflictResolver'
 
 export function Workspace() {
   const {
@@ -54,6 +56,10 @@ export function Workspace() {
             listenerCleanups.push(listen('peer_left', (e: any) => removeCollaborator(e.payload.id)))
             listenerCleanups.push(listen('peer_entry', (e: any) => applyRemoteEntry(e.payload)))
             listenerCleanups.push(listen('peer_status', (e: any) => updateCollaboratorStatus(e.payload.id, e.payload.status, e.payload.current_file)))
+            // A remote write that diverged from local work is held by the backend
+            // and surfaced here — clean merges auto-apply, real collisions queue.
+            listenerCleanups.push(listen('conflict://detected', (e: any) => useConflicts.getState().ingest(e.payload)))
+            useConflicts.getState().hydrate()
           } catch (err) {
             console.error('Failed to start network:', err)
           }
@@ -268,6 +274,7 @@ export function Workspace() {
   return (
     <WorkspaceShell>
       <AutoSaveDaemon />
+      <ConflictResolver />
     </WorkspaceShell>
   )
 }

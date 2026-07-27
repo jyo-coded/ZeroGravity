@@ -43,6 +43,10 @@ pub struct AppState {
     pub ai_task: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
     /// Language server host (A4) — one server per language group.
     pub lsp: Arc<crate::lsp::LspManager>,
+    /// Remote writes held back because the local copy diverged. Kept here (not
+    /// just fired as an event) so a resolver panel can repopulate after a reload
+    /// instead of stranding an unresolved conflict off-screen.
+    pub pending_conflicts: Arc<Mutex<Vec<ConflictInfo>>>,
 }
 
 impl AppState {
@@ -63,8 +67,28 @@ impl AppState {
             last_model_used: Arc::new(Mutex::new(None)),
             ai_task: Arc::new(Mutex::new(None)),
             lsp: Arc::new(crate::lsp::LspManager::new()),
+            pending_conflicts: Arc::new(Mutex::new(Vec::new())),
         }
     }
+}
+
+// ─── Conflict resolution ────────────────────────────────────────────────────
+
+/// Conflicts still awaiting a decision. The resolver panel calls this on mount
+/// so a reload never loses track of an unresolved merge.
+#[tauri::command]
+pub async fn list_conflicts(state: State<'_, AppState>) -> Result<Vec<ConflictInfo>, String> {
+    Ok(state.pending_conflicts.lock().await.clone())
+}
+
+/// Drop a conflict once it has been resolved (the resolved content is written
+/// separately, through `commit_write`, so it flows through the ledger and back
+/// out to peers like any other change). Idempotent: dismissing an unknown id is
+/// a no-op, so a double-click or a stale panel can't error.
+#[tauri::command]
+pub async fn dismiss_conflict(id: String, state: State<'_, AppState>) -> Result<(), String> {
+    state.pending_conflicts.lock().await.retain(|c| c.id != id);
+    Ok(())
 }
 
 // ─── LSP bridge (A4) ──────────────────────────────────────────────────────────

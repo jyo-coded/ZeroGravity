@@ -147,6 +147,9 @@
   --z-overlay: 100;
   --z-palette: 200;
   --z-toast: 300;
+  /* Conflict resolver sits above everything: it blocks P2P convergence until
+     the user decides, so nothing should be able to obscure it. */
+  --z-conflict: 400;
 }
 
 @media (prefers-reduced-motion: reduce) {

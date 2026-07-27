@@ -24,6 +24,28 @@ pub struct ChangelogEntry {
     pub conflict_flag: bool,
 }
 
+/// A remote write that could not be applied blindly because the local copy has
+/// diverged from the version the peer edited. Carries the three sides a 3-way
+/// merge needs, so the frontend can auto-merge non-overlapping changes and only
+/// ask the user about true conflicts. Nothing is written to disk while this is
+/// outstanding — neither side's work is lost.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConflictInfo {
+    pub id: String,
+    pub file: String,
+    /// The common ancestor (the peer's pre-edit content), when known. Absent when
+    /// the peer created the file or sent no prior content; the frontend then
+    /// treats every differing region as a conflict rather than guessing.
+    pub base: Option<String>,
+    /// Current local content on disk.
+    pub ours: String,
+    /// Incoming content from the peer.
+    pub theirs: String,
+    pub their_user: String,
+    pub their_summary: String,
+    pub their_model: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelConfig {
     pub provider: String,

@@ -556,7 +556,7 @@ impl NetworkNode {
                             if let Some(root) = root_path {
                                 let mut cl_lock = state.changelog.lock().await;
                                 if let Some(ref mut changelog) = *cl_lock {
-                                    if let Ok(processed) = state
+                                    match state
                                         .orchestrator
                                         .apply_remote_update(
                                             entry.clone(),
@@ -566,7 +566,30 @@ impl NetworkNode {
                                         )
                                         .await
                                     {
-                                        let _ = app_r.emit("peer_entry", processed);
+                                        Ok(crate::orchestrator::RemoteOutcome::Applied(processed)) => {
+                                            let _ = app_r.emit("peer_entry", processed);
+                                        }
+                                        // Diverged: park the conflict so it survives a
+                                        // panel reload, then surface it. Nothing was
+                                        // written — the resolver decides what lands.
+                                        Ok(crate::orchestrator::RemoteOutcome::Conflict(info)) => {
+                                            drop(cl_lock);
+                                            state
+                                                .pending_conflicts
+                                                .lock()
+                                                .await
+                                                .retain(|c| c.file != info.file);
+                                            state
+                                                .pending_conflicts
+                                                .lock()
+                                                .await
+                                                .push(info.clone());
+                                            let _ = app_r.emit("conflict://detected", info);
+                                        }
+                                        Err(e) => {
+                                            log::error!("apply_remote_update failed: {e}");
+                                            let _ = app_r.emit("peer_entry", entry);
+                                        }
                                     }
                                 } else {
                                     // Fallback if changelog missing

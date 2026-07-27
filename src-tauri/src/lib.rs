@@ -98,6 +98,8 @@ pub fn run() {
             completion::ai_complete,
             completion::test_model,
             completion::list_models,
+            commands::list_conflicts,
+            commands::dismiss_conflict,
             agent::ai_raw,
         ])
         // Kill every PTY when the app exits. Without this, closing the window
