@@ -49,6 +49,7 @@ export function WorkspaceShell({ children }: { children?: React.ReactNode }) {
         switch (k) {
           case 'e': e.preventDefault(); setSidebarView('explorer'); return
           case 'f': e.preventDefault(); setSidebarView('search'); return
+          case 'o': e.preventDefault(); setSidebarView('outline'); return
           case 'g': e.preventDefault(); setSidebarView('git'); return
           case 'm': e.preventDefault(); showBottom('problems'); return
           case 'a': e.preventDefault(); toggleAi(); return

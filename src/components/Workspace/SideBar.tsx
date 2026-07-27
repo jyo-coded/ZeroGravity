@@ -5,6 +5,7 @@ import { FileExplorer } from '../Explorer/FileExplorer'
 // Explorer is the default view and loads eagerly; the rest arrive when first
 // opened, so startup pays only for what is actually on screen.
 const SearchPanel = lazy(() => import('../Search/SearchPanel').then((m) => ({ default: m.SearchPanel })))
+const OutlinePanel = lazy(() => import('../Outline/OutlinePanel').then((m) => ({ default: m.OutlinePanel })))
 const ProblemsPanel = lazy(() => import('../Problems/ProblemsPanel').then((m) => ({ default: m.ProblemsPanel })))
 const TeamPanel = lazy(() => import('../Team/TeamPanel').then((m) => ({ default: m.TeamPanel })))
 const SourceControlPanel = lazy(() => import('../Git/SourceControlPanel').then((m) => ({ default: m.SourceControlPanel })))
@@ -13,6 +14,7 @@ const LedgerPanel = lazy(() => import('../Ledger/LedgerPanel').then((m) => ({ de
 const TITLES: Record<string, string> = {
   explorer: 'Explorer',
   search: 'Search',
+  outline: 'Outline',
   git: 'Source Control',
   ledger: 'Ledger',
   team: 'Team',
@@ -38,6 +40,7 @@ export function SideBar() {
         <Suspense fallback={<PanelLoading />}>
         {sidebarView === 'explorer' && <FileExplorer />}
         {sidebarView === 'search' && <SearchPanel />}
+        {sidebarView === 'outline' && <OutlinePanel />}
         {sidebarView === 'problems' && <ProblemsPanel />}
         {sidebarView === 'team' && <TeamPanel />}
         {sidebarView === 'ledger' && <LedgerPanel />}

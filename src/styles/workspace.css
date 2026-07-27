@@ -1209,6 +1209,37 @@ button.status-item:hover { background: var(--bg-hover); color: var(--text-primar
   white-space: pre-wrap;
 }
 
+/* ── Outline ───────────────────────────────────────────────────────────────
+   Symbols of the active file, from the tree-sitter graph. Function = accent
+   (cyan), type = violet — the same kind-colouring the constellation uses. */
+.outline { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.outline-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.outline-filter { flex: 1; min-width: 0; height: 26px; font-size: var(--text-xs); }
+.outline-list { list-style: none; margin: 0; padding: var(--space-2) 0; overflow-y: auto; flex: 1; min-height: 0; }
+.outline-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) var(--space-4);
+  text-align: left;
+}
+.outline-name { font-size: var(--text-sm); color: var(--text-primary); font-family: var(--font-code); }
+.outline-kind {
+  font-size: var(--text-2xs);
+  color: var(--ai);
+  background: var(--ai-dim);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+}
+.outline-line { font-size: var(--text-2xs); font-family: var(--font-code); color: var(--text-faint); }
+
 /* ── Conflict resolver ─────────────────────────────────────────────────────
    Shown only for genuine P2P collisions (clean merges apply silently). Cyan is
    you, amber the teammate — the same provenance language used everywhere else,

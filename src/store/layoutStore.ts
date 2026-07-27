@@ -10,7 +10,7 @@
  */
 import { create } from 'zustand'
 
-export type SidebarView = 'explorer' | 'search' | 'git' | 'ledger' | 'team' | 'problems'
+export type SidebarView = 'explorer' | 'search' | 'outline' | 'git' | 'ledger' | 'team' | 'problems'
 export type BottomTab = 'terminal' | 'problems' | 'output'
 
 const LS_LAYOUT = '0g_layout'
