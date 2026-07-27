@@ -168,10 +168,10 @@ pub async fn test_model(
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     let client = Arc::clone(&state.model_client);
-    match client
-        .invoke(&config, "Reply with the single word: ok")
-        .await
-    {
+    // Use the dedicated probe: a tiny system prompt and a hard output cap of a
+    // few tokens, so verifying a key never reserves a large budget or costs more
+    // than a handful of tokens — the check can't be the thing that ends a quota.
+    match client.probe(&config).await {
         Ok(text) => Ok(text.trim().chars().take(60).collect()),
         Err(e) => Err(e.to_string()),
     }

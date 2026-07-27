@@ -172,6 +172,19 @@ pub async fn safely_open_file(path_str: &str) -> Result<String> {\n\
 }\n\
 ```";
 
+/// Default output ceiling for real generation.
+const DEFAULT_MAX_TOKENS: u32 = 4096;
+/// Output ceiling for the liveness probe. Kept tiny on purpose: some providers
+/// meter their token-per-minute limit against the *requested* max_tokens, not the
+/// tokens actually produced, so a health check that borrowed the 4096 default
+/// would momentarily reserve a large budget it never uses — the one way a trivial
+/// "is it up?" check could nudge a near-full quota over the edge. The probe only
+/// ever needs to hear "ok" back.
+const PROBE_MAX_TOKENS: u32 = 16;
+/// Minimal system prompt for the probe — the full engineering prompt (~200
+/// tokens) is pure waste when all we want is a one-word reply.
+const PROBE_SYSTEM: &str = "You are a connectivity check. Reply with exactly: ok";
+
 impl ModelClient {
     /// The shared HTTP client. Exposed so sibling modules reuse its configured
     /// connect/read timeouts rather than constructing one with different
@@ -463,7 +476,8 @@ impl ModelClient {
 
     /// Call the configured model with a text prompt, and optionally an image
     pub async fn invoke(&self, config: &ModelConfig, prompt: &str) -> Result<String> {
-        self.invoke_inner(config, prompt, None, None).await
+        self.invoke_inner(config, prompt, None, None, SYSTEM_PROMPT, DEFAULT_MAX_TOKENS)
+            .await
     }
 
     /// Call with an attached image (base64 encoded, no data: prefix)
@@ -474,8 +488,30 @@ impl ModelClient {
         image_base64: &str,
         image_mime_type: &str,
     ) -> Result<String> {
-        self.invoke_inner(config, prompt, Some(image_base64), Some(image_mime_type))
-            .await
+        self.invoke_inner(
+            config,
+            prompt,
+            Some(image_base64),
+            Some(image_mime_type),
+            SYSTEM_PROMPT,
+            DEFAULT_MAX_TOKENS,
+        )
+        .await
+    }
+
+    /// A minimal liveness probe. Unlike `invoke`, it carries a tiny system prompt
+    /// and caps output at a handful of tokens, so verifying a key can never
+    /// reserve a large budget or cost more than roughly a dozen tokens total.
+    pub async fn probe(&self, config: &ModelConfig) -> Result<String> {
+        self.invoke_inner(
+            config,
+            "Reply with the single word: ok",
+            None,
+            None,
+            PROBE_SYSTEM,
+            PROBE_MAX_TOKENS,
+        )
+        .await
     }
 
     async fn invoke_inner(
@@ -484,6 +520,8 @@ impl ModelClient {
         prompt: &str,
         image_base64: Option<&str>,
         image_mime_type: Option<&str>,
+        system: &str,
+        max_tokens: u32,
     ) -> Result<String> {
         // Build user content — multimodal if image present
         let user_content: MessageContent =
@@ -517,7 +555,7 @@ impl ModelClient {
         let messages = vec![
             ChatMessage {
                 role: "system".into(),
-                content: MessageContent::Text(SYSTEM_PROMPT.into()),
+                content: MessageContent::Text(system.into()),
             },
             ChatMessage {
                 role: "user".into(),
@@ -527,33 +565,45 @@ impl ModelClient {
 
         match config.provider.as_str() {
             "ollama" => self.invoke_ollama(config, messages).await,
-            "anthropic" => self.invoke_anthropic(config, messages).await,
+            "anthropic" => self.invoke_anthropic(config, messages, max_tokens).await,
             "google" => {
                 self.invoke_openai_compat(
                     config,
                     messages,
                     "https://generativelanguage.googleapis.com/v1beta/openai",
+                    max_tokens,
                 )
                 .await
             }
             "openai" => {
-                self.invoke_openai_compat(config, messages, "https://api.openai.com/v1")
+                self.invoke_openai_compat(config, messages, "https://api.openai.com/v1", max_tokens)
                     .await
             }
             "groq" => {
-                self.invoke_openai_compat(config, messages, "https://api.groq.com/openai/v1")
-                    .await
+                self.invoke_openai_compat(
+                    config,
+                    messages,
+                    "https://api.groq.com/openai/v1",
+                    max_tokens,
+                )
+                .await
             }
             "openrouter" => {
-                self.invoke_openai_compat(config, messages, "https://openrouter.ai/api/v1")
-                    .await
+                self.invoke_openai_compat(
+                    config,
+                    messages,
+                    "https://openrouter.ai/api/v1",
+                    max_tokens,
+                )
+                .await
             }
             _ => {
                 let base = config
                     .base_url
                     .as_deref()
                     .ok_or_else(|| anyhow!("Custom provider requires a base_url"))?;
-                self.invoke_openai_compat(config, messages, base).await
+                self.invoke_openai_compat(config, messages, base, max_tokens)
+                    .await
             }
         }
     }
@@ -564,6 +614,7 @@ impl ModelClient {
         config: &ModelConfig,
         messages: Vec<ChatMessage>,
         base_url: &str,
+        max_tokens: u32,
     ) -> Result<String> {
         let endpoint = format!("{}/chat/completions", base_url.trim_end_matches('/'));
 
@@ -571,7 +622,7 @@ impl ModelClient {
             model: config.model_name.clone(),
             messages,
             stream: false,
-            max_tokens: Some(4096),
+            max_tokens: Some(max_tokens),
             options: None,
         };
 
@@ -607,6 +658,7 @@ impl ModelClient {
         &self,
         config: &ModelConfig,
         messages: Vec<ChatMessage>,
+        max_tokens: u32,
     ) -> Result<String> {
         let endpoint = "https://api.anthropic.com/v1/messages";
 
@@ -676,7 +728,7 @@ impl ModelClient {
 
         let body = AnthropicRequest {
             model: config.model_name.clone(),
-            max_tokens: 4096,
+            max_tokens,
             system: system_text,
             messages: api_messages,
             stream: None,
