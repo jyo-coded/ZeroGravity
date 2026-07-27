@@ -210,6 +210,24 @@ export async function revertSession(sessionId: string): Promise<ChangelogEntry[]
   return invoke('revert_session', { sessionId })
 }
 
+// Semantic retrieval — relevance-ranked code chunks from across the project.
+
+export interface SemanticHit {
+  file: string
+  start_line: number
+  end_line: number
+  score: number
+  text: string
+}
+
+export async function semanticSearch(query: string, k?: number): Promise<SemanticHit[]> {
+  return invoke('semantic_search', { query, k: k ?? null })
+}
+
+export async function reindex(): Promise<number> {
+  return invoke('reindex')
+}
+
 // Conflict resolution — remote writes held back because the local copy diverged.
 
 export interface ConflictInfo {

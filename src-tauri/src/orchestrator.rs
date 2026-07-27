@@ -239,6 +239,7 @@ impl Orchestrator {
         chat_context: &str,
         context_map: Option<&std::collections::HashMap<String, String>>,
         graph: Option<&CodeGraph>,
+        relevant_code: &str,
     ) -> String {
         // ── Graph context block ───────────────────────────────────────────────
         let graph_block = graph.map(|g| g.query_context(file)).unwrap_or_default();
@@ -359,11 +360,21 @@ impl Orchestrator {
             format!("{}\n\n", graph_block)
         };
 
+        // Retrieved cross-project code sits right after the structural graph and
+        // before the raw open file: architecture first, then the specific code
+        // most relevant to the request, then what the user is actually looking at.
+        let relevant_section = if relevant_code.trim().is_empty() {
+            String::new()
+        } else {
+            format!("{}\n\n", relevant_code)
+        };
+
         format!(
-            "{}\n\n[SYSTEM CONTEXT]\n{}\n\n{}Currently Open File: {}\nFile Content:\n{}\n\n{}{}[TEAM CONTEXT]\nRecent teammate changes (last 5 cross-file):\n{}\n\nChangelog for current file (last 5 entries):\n{}\n\n{}[USER REQUEST]\n{}",
+            "{}\n\n[SYSTEM CONTEXT]\n{}\n\n{}{}Currently Open File: {}\nFile Content:\n{}\n\n{}{}[TEAM CONTEXT]\nRecent teammate changes (last 5 cross-file):\n{}\n\nChangelog for current file (last 5 entries):\n{}\n\n{}[USER REQUEST]\n{}",
             EDIT_PROTOCOL,
             project_summary,
             graph_section,
+            relevant_section,
             file,
             current_content,
             previous_content_block,

@@ -14,6 +14,7 @@ mod network;
 mod orchestrator;
 mod parser;
 mod rotation;
+mod semindex;
 mod terminal;
 mod types;
 
@@ -101,6 +102,8 @@ pub fn run() {
             commands::list_conflicts,
             commands::dismiss_conflict,
             commands::revert_session,
+            commands::semantic_search,
+            commands::reindex,
             agent::ai_raw,
         ])
         // Kill every PTY when the app exits. Without this, closing the window

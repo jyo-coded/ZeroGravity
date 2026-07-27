@@ -40,15 +40,18 @@ ONE fenced block and nothing else after it — stop and wait for the result:
 \`\`\`
 
 Available tools:
-- read_file   {"path": string, "start"?: number, "end"?: number}
-              — read a project file; pass start/end to fetch a specific line range
-- list_dir    {"path": string}                  — list a directory (use "" for the project root)
-- grep        {"query": string}                 — search the project's text for a string
-- diagnostics {}                                — current errors and warnings from the language server
-- run         {"command": string}               — run a shell command (the user must approve it first)
+- read_file    {"path": string, "start"?: number, "end"?: number}
+               — read a project file; pass start/end to fetch a specific line range
+- list_dir     {"path": string}                  — list a directory (use "" for the project root)
+- grep         {"query": string}                 — search the project's text for an EXACT string
+- find_related {"query": string}                 — find code by MEANING across the whole project;
+               use this when you don't know the exact name, then read_file the best hits
+- diagnostics  {}                                — current errors and warnings from the language server
+- run          {"command": string}               — run a shell command (the user must approve it first)
 
 Rules:
 - One tool call per message. Never guess a file's contents — read it.
+- Prefer find_related to locate relevant code you can't name exactly; prefer grep for an exact symbol.
 - A long file is shown with its MIDDLE omitted. Never write a SEARCH block for
   lines you were not shown; re-read that range with start/end first.
 - When you have enough information, STOP calling tools and emit your edit blocks.
@@ -156,6 +159,26 @@ export async function runTool(
           ok: true,
           observation: `${results.length} match(es) for "${query}":\n${lines}`,
           label: `grep "${query}" — ${results.length}`,
+        }
+      }
+
+      case 'find_related': {
+        const query = String(call.args.query ?? '')
+        if (!query) return { ok: false, observation: 'find_related needs a "query".', label: 'find_related' }
+        const hits = await api.semanticSearch(query, 6)
+        if (!hits.length) {
+          return { ok: true, observation: `No related code found for "${query}".`, label: `find_related "${query}"` }
+        }
+        // Return locations + a short preview, not full chunks: the agent can
+        // read_file the promising ones, keeping this observation within budget.
+        const lines = hits.map((h) => {
+          const preview = h.text.split('\n').slice(0, 2).join(' ').trim().slice(0, 120)
+          return `${h.file}:${h.start_line}-${h.end_line} (score ${h.score.toFixed(2)}) — ${preview}`
+        }).join('\n')
+        return {
+          ok: true,
+          observation: `Most relevant code for "${query}":\n${lines}`,
+          label: `find_related "${query}" — ${hits.length}`,
         }
       }
 
