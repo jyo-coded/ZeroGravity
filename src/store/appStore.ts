@@ -1269,6 +1269,10 @@ function normalizeEntry(raw: any): ChangelogEntry {
     previous_content: raw.previous_content ?? raw.previousContent ?? undefined,
     status: raw.status ?? 'committed',
     conflict_flag: raw.conflict_flag ?? raw.conflictFlag ?? false,
+    // Must be carried through: this is what groups an agent run in the ledger and
+    // enables "Undo run". Rebuilding the entry field-by-field silently dropped it,
+    // so grouping appeared right after a run and then vanished on the next reload.
+    session_id: raw.session_id ?? raw.sessionId ?? null,
   }
 }
 
