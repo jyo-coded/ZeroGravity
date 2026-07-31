@@ -62,6 +62,18 @@ export function Workspace() {
             // and surfaced here — clean merges auto-apply, real collisions queue.
             listenerCleanups.push(listen('conflict://detected', (e: any) => useConflicts.getState().ingest(e.payload)))
             useConflicts.getState().hydrate()
+            // Joining with an empty folder pulls the project from a peer; the
+            // files land on disk before this fires, so just re-read the tree.
+            listenerCleanups.push(listen('project://synced', (e: any) => {
+              const count = e.payload?.count ?? 0
+              const s = useAppStore.getState()
+              s.loadFileTree()
+              s.addNotification({
+                type: 'change',
+                detail: 'Project synced',
+                message: `Received ${count} file${count === 1 ? '' : 's'} from your team`,
+              })
+            }))
           } catch (err) {
             console.error('Failed to start network:', err)
           }

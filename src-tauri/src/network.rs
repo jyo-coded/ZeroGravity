@@ -40,6 +40,217 @@ fn safe_project_join(root: &Path, path: &str) -> Option<PathBuf> {
     saw_normal.then_some(out)
 }
 
+/// Caps on a project snapshot. Generous for real source trees, but bounded so a
+/// peer can never make us read an unbounded amount into memory — the ignore
+/// rules already drop node_modules/target, which is what actually blows up.
+const SYNC_MAX_FILE_BYTES: usize = 2 * 1024 * 1024;
+const SYNC_MAX_FILES: usize = 3000;
+const SYNC_MAX_TOTAL_BYTES: usize = 64 * 1024 * 1024;
+
+/// Read the project as (relative path, contents) pairs.
+///
+/// Deliberately reuses `context_scanner::should_ignore`, so a joiner receives
+/// exactly the set of files the scanner would have indexed — no separate ignore
+/// list to drift out of sync. Non-UTF8 files are skipped: the wire format is
+/// JSON strings, and binaries are not what a code project sync is for.
+fn collect_project_files(root: &Path) -> Vec<(String, String)> {
+    let mut files = Vec::new();
+    let mut total = 0usize;
+
+    let walker = walkdir::WalkDir::new(root)
+        .into_iter()
+        .filter_entry(|e| e.depth() == 0 || !crate::context_scanner::should_ignore(e));
+
+    for entry in walker.flatten() {
+        if files.len() >= SYNC_MAX_FILES || total >= SYNC_MAX_TOTAL_BYTES {
+            warn!("Project snapshot hit its size cap; sending a partial tree");
+            break;
+        }
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        if entry.metadata().map(|m| m.len() as usize > SYNC_MAX_FILE_BYTES).unwrap_or(true) {
+            continue;
+        }
+        let Ok(rel) = entry.path().strip_prefix(root) else { continue };
+        let Ok(content) = std::fs::read_to_string(entry.path()) else { continue };
+        total += content.len();
+        files.push((rel.to_string_lossy().replace('\\', "/"), content));
+    }
+    files
+}
+
+/// True when there is nothing here worth keeping — the only state in which it is
+/// safe to accept a peer's snapshot. A folder holding the user's own work must
+/// never be overwritten by a teammate's copy just because they connected.
+fn project_is_empty(root: &Path) -> bool {
+    let walker = walkdir::WalkDir::new(root)
+        .into_iter()
+        .filter_entry(|e| e.depth() == 0 || !crate::context_scanner::should_ignore(e));
+    !walker.flatten().any(|e| e.file_type().is_file())
+}
+
+#[cfg(test)]
+mod sync_tests {
+    use super::*;
+    use std::fs;
+
+    fn scratch(tag: &str) -> PathBuf {
+        let mut p = std::env::temp_dir();
+        p.push(format!("0g-sync-{}-{}", tag, uuid::Uuid::new_v4()));
+        fs::create_dir_all(&p).unwrap();
+        p
+    }
+    fn write(root: &Path, rel: &str, body: &str) {
+        let f = root.join(rel);
+        fs::create_dir_all(f.parent().unwrap()).unwrap();
+        fs::write(f, body).unwrap();
+    }
+
+    #[test]
+    fn snapshot_carries_source_and_drops_junk() {
+        let root = scratch("collect");
+        write(&root, "src/main.rs", "fn main() {}");
+        write(&root, "src/lib/util.ts", "export const x = 1");
+        write(&root, "node_modules/dep/index.js", "module.exports={}");
+        write(&root, "target/debug/build.log", "noise");
+        write(&root, ".0g/changelog.enc", "secret");
+        write(&root, ".git/HEAD", "ref: refs/heads/main");
+
+        let files = collect_project_files(&root);
+        let paths: Vec<&str> = files.iter().map(|(p, _)| p.as_str()).collect();
+
+        assert!(paths.contains(&"src/main.rs"), "got {paths:?}");
+        assert!(paths.contains(&"src/lib/util.ts"), "got {paths:?}");
+        // Dependencies, build output and the encrypted ledger are never shipped:
+        // the ledger is per-peer, and the rest is regenerable bulk.
+        assert!(!paths.iter().any(|p| p.starts_with("node_modules")), "got {paths:?}");
+        assert!(!paths.iter().any(|p| p.starts_with("target")), "got {paths:?}");
+        assert!(!paths.iter().any(|p| p.starts_with(".0g")), "got {paths:?}");
+        assert!(!paths.iter().any(|p| p.starts_with(".git")), "got {paths:?}");
+        assert_eq!(files.len(), 2);
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn paths_survive_the_round_trip() {
+        // What collect produces must be re-joinable on the receiving side —
+        // nested paths included, and always inside the destination root.
+        let root = scratch("roundtrip");
+        write(&root, "a/b/c/deep.ts", "ok");
+        let dest = scratch("roundtrip-dest");
+        for (rel, _) in collect_project_files(&root) {
+            let abs = safe_project_join(&dest, &rel).expect("must rejoin");
+            assert!(abs.starts_with(&dest), "{abs:?} escaped {dest:?}");
+        }
+        fs::remove_dir_all(&root).ok();
+        fs::remove_dir_all(&dest).ok();
+    }
+
+    #[test]
+    fn emptiness_ignores_junk_but_not_source() {
+        let empty = scratch("empty");
+        assert!(project_is_empty(&empty), "fresh folder must read as empty");
+
+        // A folder holding only dependencies still counts as empty — there is no
+        // user work there to protect.
+        write(&empty, "node_modules/x/i.js", "x");
+        assert!(project_is_empty(&empty));
+
+        // One real source file makes it non-empty, which is what stops a peer's
+        // snapshot from landing on top of somebody's own work.
+        write(&empty, "main.py", "print(1)");
+        assert!(!project_is_empty(&empty));
+        fs::remove_dir_all(&empty).ok();
+    }
+
+    #[test]
+    fn oversized_files_are_skipped() {
+        let root = scratch("cap");
+        write(&root, "small.txt", "fine");
+        write(&root, "huge.txt", &"x".repeat(SYNC_MAX_FILE_BYTES + 1));
+        let paths: Vec<String> = collect_project_files(&root).into_iter().map(|(p, _)| p).collect();
+        assert!(paths.contains(&"small.txt".to_string()));
+        assert!(!paths.contains(&"huge.txt".to_string()), "got {paths:?}");
+        fs::remove_dir_all(&root).ok();
+    }
+
+    /// The wire format is a serde-tagged enum. A variant that does not round-trip
+    /// fails silently at runtime — the peer just ignores the frame — so pin it.
+    #[test]
+    fn sync_messages_round_trip_on_the_wire() {
+        let cases = vec![
+            NetworkMessage::SyncRequest,
+            NetworkMessage::SyncFile {
+                path: "src/a/b.rs".into(),
+                content: "fn main() { println!(\"héllo\\n\"); }".into(),
+            },
+            NetworkMessage::SyncDone { count: 42 },
+        ];
+        for msg in cases {
+            let bytes = serde_json::to_vec(&msg).expect("serialise");
+            let back: NetworkMessage = serde_json::from_slice(&bytes).expect("deserialise");
+            match (&msg, &back) {
+                (NetworkMessage::SyncRequest, NetworkMessage::SyncRequest) => {}
+                (
+                    NetworkMessage::SyncFile { path: a, content: b },
+                    NetworkMessage::SyncFile { path: c, content: d },
+                ) => {
+                    assert_eq!(a, c);
+                    assert_eq!(b, d, "unicode and newlines must survive");
+                }
+                (NetworkMessage::SyncDone { count: a }, NetworkMessage::SyncDone { count: b }) => {
+                    assert_eq!(a, b)
+                }
+                _ => panic!("variant changed across the wire: {msg:?} -> {back:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn traversal_paths_are_refused_on_receive() {
+        let dest = scratch("traversal");
+        for evil in ["../escape.txt", "..\\escape.txt", "/etc/passwd", "a/../../b.txt"] {
+            assert!(
+                safe_project_join(&dest, evil).is_none(),
+                "{evil} should have been rejected"
+            );
+        }
+        fs::remove_dir_all(&dest).ok();
+    }
+}
+
+/// Resolve the open project's root, if one is open.
+async fn project_root(app: &AppHandle) -> Option<PathBuf> {
+    let state = app.state::<crate::commands::AppState>();
+    let proj = state.project.lock().await;
+    proj.as_ref().map(|p| PathBuf::from(&p.root_path))
+}
+
+/// Ask a freshly-connected peer for the project, but only when we have nothing.
+///
+/// Guarded three ways: we must have a project open, its folder must be empty,
+/// and we must not have already pulled from someone else. That last flag is what
+/// stops a three-person team from transferring the tree twice.
+async fn request_sync_if_empty(
+    app: &AppHandle,
+    node: &Arc<NetworkNode>,
+    tx: &mpsc::Sender<NetworkMessage>,
+) {
+    let Some(root) = project_root(app).await else { return };
+    if *node.sync_pulled.read().await {
+        return;
+    }
+    if !project_is_empty(&root) {
+        return;
+    }
+    // Claim the pull before awaiting the reply, so two peers connecting at once
+    // cannot both start sending us the same project.
+    *node.sync_pulled.write().await = true;
+    info!("Project folder is empty — requesting a snapshot from peer");
+    let _ = tx.send(NetworkMessage::SyncRequest).await;
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PeerInfo {
     pub id: String,
@@ -104,6 +315,17 @@ pub enum NetworkMessage {
         text: String,
         ts: String,
     },
+    /// Sent by a peer whose project folder is empty, asking whoever it just
+    /// connected to for the project as it currently stands. Without this, joining
+    /// a team gave you a working encrypted link to an empty directory: files only
+    /// ever moved when somebody *edited* one.
+    SyncRequest,
+    /// One file of a snapshot, in reply to `SyncRequest`. Sent per-file rather
+    /// than as one archive so a large project streams instead of building a
+    /// single frame that would blow the 16 MB message ceiling.
+    SyncFile { path: String, content: String },
+    /// End of a snapshot. `count` is what the sender actually transmitted.
+    SyncDone { count: usize },
 }
 
 pub struct NetworkNode {
@@ -118,6 +340,9 @@ pub struct NetworkNode {
     pub frame_cipher: RwLock<Option<XChaCha20Poly1305>>,
     /// T1: our bound TCP listen port (for manual WAN connect-by-address).
     pub tcp_port: RwLock<u16>,
+    /// Set once we have pulled a project snapshot from some peer, so connecting
+    /// to a second teammate does not trigger a redundant second transfer.
+    pub sync_pulled: RwLock<bool>,
 }
 
 /// Derive the shared frame cipher. Deterministic across peers: the salt is
@@ -188,6 +413,7 @@ impl NetworkNode {
             peer_info: RwLock::new(HashMap::new()),
             frame_cipher: RwLock::new(None),
             tcp_port: RwLock::new(0),
+            sync_pulled: RwLock::new(false),
         }
     }
 
@@ -484,6 +710,10 @@ impl NetworkNode {
 
                             // Emit peer joined
                             let _ = app_r.emit("peer_joined", info);
+
+                            // If our project folder is empty, this peer is the
+                            // first one who can tell us what the project is.
+                            request_sync_if_empty(&app_r, &node_r, &tx).await;
                         }
                         NetworkMessage::HandshakeAck {
                             id,
@@ -519,6 +749,10 @@ impl NetworkNode {
 
                             // Emit peer joined
                             let _ = app_r.emit("peer_joined", info);
+
+                            // If our project folder is empty, this peer is the
+                            // first one who can tell us what the project is.
+                            request_sync_if_empty(&app_r, &node_r, &tx).await;
                         }
                         NetworkMessage::PeerStatus {
                             id,
@@ -646,6 +880,61 @@ impl NetworkNode {
                                 }
                             }
                             let _ = app_r.emit("peer_entry", entry);
+                        }
+                        NetworkMessage::SyncRequest => {
+                            // A teammate joined with an empty folder. Stream them the
+                            // project on a separate task so a big tree does not stall
+                            // this connection's reader loop.
+                            let app_s = app_r.clone();
+                            let tx_s = tx.clone();
+                            tokio::spawn(async move {
+                                let Some(root) = project_root(&app_s).await else { return };
+                                let files = tokio::task::spawn_blocking(move || {
+                                    collect_project_files(&root)
+                                })
+                                .await
+                                .unwrap_or_default();
+
+                                let count = files.len();
+                                info!("Sending project snapshot to peer: {} file(s)", count);
+                                for (path, content) in files {
+                                    if tx_s
+                                        .send(NetworkMessage::SyncFile { path, content })
+                                        .await
+                                        .is_err()
+                                    {
+                                        return; // peer went away mid-transfer
+                                    }
+                                }
+                                let _ = tx_s.send(NetworkMessage::SyncDone { count }).await;
+                            });
+                        }
+                        NetworkMessage::SyncFile { path, content } => {
+                            // Same path validation as every other remote write: a
+                            // peer must never be able to place a file outside the
+                            // project root.
+                            if let Some(root) = project_root(&app_r).await {
+                                match safe_project_join(&root, &path) {
+                                    Some(abs) => {
+                                        if let Some(parent) = abs.parent() {
+                                            tokio::fs::create_dir_all(parent).await.ok();
+                                        }
+                                        if let Err(e) =
+                                            tokio::fs::write(&abs, content.as_bytes()).await
+                                        {
+                                            warn!("Could not write synced file {}: {}", path, e);
+                                        }
+                                    }
+                                    None => warn!("Rejected synced file outside project: {}", path),
+                                }
+                            }
+                        }
+                        NetworkMessage::SyncDone { count } => {
+                            info!("Project snapshot received: {} file(s)", count);
+                            let _ = app_r.emit(
+                                "project://synced",
+                                serde_json::json!({ "count": count }),
+                            );
                         }
                         NetworkMessage::Crdt { doc, kind, data } => {
                             // Pure relay — hand the payload to the webview with sender id
