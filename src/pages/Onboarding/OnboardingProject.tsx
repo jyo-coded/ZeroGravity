@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { FolderOpen, Hash, Sparkles, Users, Loader2, RotateCcw } from 'lucide-react'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
@@ -13,24 +13,63 @@ export function OnboardingProject() {
   const [joinPassphrase, setJoinPassphrase] = useState('')
   const [inviteCode, setInviteCode] = useState('')
   const [rootPath, setRootPath] = useState('')
+  const [pathTouched, setPathTouched] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const canCreate = projectName.trim() && passphrase.trim().length >= 8 && rootPath.trim()
   const canJoin = inviteCode.trim().length === 6 && rootPath.trim() && joinPassphrase.trim().length >= 8
 
+  /**
+   * Propose a destination automatically.
+   *
+   * A project you are joining does not exist on this machine yet, so there is
+   * nothing to browse for — and browsing to a folder that already holds your own
+   * work would sync a teammate's project straight into it. Suggesting
+   * `<Documents>/0G/<code>` means the common path needs no dialog at all. We stop
+   * suggesting the moment the user edits the field themselves.
+   */
+  useEffect(() => {
+    if (pathTouched) return
+    const label = mode === 'join' ? inviteCode.trim() : projectName.trim()
+    if (mode === 'join' && label.length !== 6) return
+    if (mode === 'create' && !label) return
+    let cancelled = false
+    api.suggestProjectDir(label)
+      .then((p) => { if (!cancelled && typeof p === 'string' && p) setRootPath(p) })
+      .catch(() => { /* leave the field empty; the user can still browse or type */ })
+    return () => { cancelled = true }
+  }, [mode, inviteCode, projectName, pathTouched])
+
+  // Switching mode drops a suggestion made for the other mode.
+  useEffect(() => { if (!pathTouched) setRootPath('') }, [mode]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function pickFolder() {
     setError('')
-    // Primary: backend-driven native picker (most reliable). Fall back to the
-    // frontend dialog plugin, and surface any failure instead of swallowing it.
+    // When JOINING, the user picks the PARENT directory and we append the
+    // project's own folder, so a teammate's workspace can never be unpacked loose
+    // into a folder that already holds their files.
+    //
+    // When CREATING we use the chosen folder exactly as picked — pointing 0G at
+    // an existing repository is a legitimate way to start a project, and silently
+    // nesting a subfolder inside it would break that.
+    const withSuffix = (parent: string) => {
+      if (mode !== 'join') return parent
+      const sep = parent.includes('\\') ? '\\' : '/'
+      const safe = inviteCode.trim().replace(/[^A-Za-z0-9\-_]/g, '-').replace(/^-+|-+$/g, '')
+      return safe ? `${parent.replace(/[\\/]+$/, '')}${sep}${safe}` : parent
+    }
+
     try {
       const selected = await api.pickFolder()
-      if (selected) setRootPath(selected)
+      if (selected) { setPathTouched(true); setRootPath(withSuffix(selected)) }
       return
-    } catch (e) {
+    } catch {
       try {
-        const selected = await openDialog({ directory: true, multiple: false, title: 'Select project folder' })
-        if (selected && typeof selected === 'string') setRootPath(selected)
+        const selected = await openDialog({
+          directory: true, multiple: false, title: 'Choose where to save the project',
+        })
+        if (selected && typeof selected === 'string') { setPathTouched(true); setRootPath(withSuffix(selected)) }
         return
       } catch (e2) {
         setError(`Couldn't open the folder picker: ${e2 instanceof Error ? e2.message : String(e2)}. You can paste the full path manually.`)
@@ -198,20 +237,23 @@ export function OnboardingProject() {
               <div>
                 <label className="flex items-center gap-1.5 text-xs text-text-secondary mb-2 font-medium">
                   <FolderOpen size={11} />
-                  Local folder
+                  Where to save it
                 </label>
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="C:\Projects\shared-workspace"
+                    placeholder="Enter the invite code and we'll suggest a folder"
                     value={rootPath}
-                    onChange={(e) => setRootPath(e.target.value)}
+                    onChange={(e) => { setPathTouched(true); setRootPath(e.target.value) }}
                     className="input-field font-mono text-xs flex-1"
                   />
                   <button type="button" onClick={pickFolder} className="btn-ghost px-3 rounded-lg text-xs shrink-0">
-                    Browse
+                    Change
                   </button>
                 </div>
+                <p className="text-xs text-text-muted mt-1.5">
+                  0G creates this folder and syncs your team&apos;s files into it. It doesn&apos;t need to exist yet.
+                </p>
               </div>
             </div>
           )}

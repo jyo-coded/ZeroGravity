@@ -929,6 +929,42 @@ pub async fn pick_folder(app: AppHandle) -> Result<Option<String>, String> {
     rx.await.map_err(|_| "Folder dialog was dismissed unexpectedly".to_string())
 }
 
+/// Suggest a destination folder for a project that does not exist locally yet.
+///
+/// Joining a team creates a fresh local copy — there is no existing folder to
+/// go and find. Asking the user to browse for one is both confusing and unsafe:
+/// picking a folder that already holds their own work syncs a teammate's project
+/// straight into it. So we propose `<Documents>/0G/<name>` and let them accept it
+/// without opening a dialog at all.
+///
+/// Returns the path only. Nothing is created here — `create_project` /
+/// `join_project` own that, so an abandoned onboarding leaves no empty folders.
+#[tauri::command]
+pub async fn suggest_project_dir(name: String, app: AppHandle) -> Result<String, String> {
+    use tauri::Manager;
+
+    // Keep it filesystem-safe and bounded; fall back to a generic name if the
+    // caller passes something that sanitises away to nothing.
+    let mut safe: String = name
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_string();
+    safe.truncate(48);
+    if safe.is_empty() {
+        safe = "workspace".into();
+    }
+
+    let base = app
+        .path()
+        .document_dir()
+        .or_else(|_| app.path().home_dir())
+        .map_err(|e| format!("Could not locate a home folder: {e}"))?;
+
+    Ok(base.join("0G").join(safe).to_string_lossy().to_string())
+}
+
 /// T1: send a team chat line to all peers.
 #[tauri::command]
 pub async fn send_chat(

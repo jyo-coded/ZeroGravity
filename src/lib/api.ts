@@ -171,6 +171,14 @@ export async function pickFolder(): Promise<string | null> {
   return invoke('pick_folder')
 }
 
+/**
+ * Propose where a not-yet-existing project should live (`<Documents>/0G/<name>`).
+ * Nothing is created — this is only a suggestion for the onboarding field.
+ */
+export async function suggestProjectDir(name: string): Promise<string> {
+  return invoke('suggest_project_dir', { name })
+}
+
 export async function detectFormatters(): Promise<{ rustfmt: boolean; black: boolean; prettier: boolean }> {
   return invoke('detect_formatters')
 }

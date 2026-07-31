@@ -83,6 +83,7 @@ pub fn run() {
             commands::get_network_info,
             commands::connect_peer,
             commands::pick_folder,
+            commands::suggest_project_dir,
             terminal::pty_spawn,
             terminal::pty_write,
             terminal::pty_resize,
