@@ -158,7 +158,21 @@ export async function sendChat(username: string, color: string, text: string, ts
   return invoke('send_chat', { username, color, text, ts })
 }
 
-export async function getNetworkInfo(): Promise<{ peer_id: string; tcp_port: number; ip: string }> {
+export interface LocalAddress {
+  /** OS interface name, e.g. "Wi-Fi" or "vEthernet (WSL)". */
+  interface: string
+  ip: string
+  /** The address the OS routes outbound traffic through — the usual right answer. */
+  primary: boolean
+}
+
+export async function getNetworkInfo(): Promise<{
+  peer_id: string
+  tcp_port: number
+  /** The primary address, kept for callers that want a single value. */
+  ip: string
+  addresses: LocalAddress[]
+}> {
   return invoke('get_network_info')
 }
 

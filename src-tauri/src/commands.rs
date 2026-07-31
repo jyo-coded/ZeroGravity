@@ -986,11 +986,23 @@ pub async fn send_chat(
 #[tauri::command]
 pub async fn get_network_info(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
     let port = *state.network.tcp_port.read().await;
-    let ip = local_lan_ip().unwrap_or_else(|| "127.0.0.1".to_string());
+    let addrs = local_lan_ips();
+    // `ip` stays for the single-address callers; `addresses` is the full list the
+    // Team panel shows so a user on a VM or VPN can pick the reachable one.
+    let ip = addrs
+        .first()
+        .map(|(_, ip, _)| ip.clone())
+        .unwrap_or_else(|| "127.0.0.1".to_string());
     Ok(json!({
         "peer_id": state.network.peer_id.clone(),
         "tcp_port": port,
         "ip": ip,
+        "addresses": addrs
+            .iter()
+            .map(|(name, ip, primary)| json!({
+                "interface": name, "ip": ip, "primary": primary,
+            }))
+            .collect::<Vec<_>>(),
     }))
 }
 
@@ -1006,11 +1018,115 @@ pub async fn connect_peer(
         .map_err(|e| format!("Could not connect to {}: {}", addr, e))
 }
 
-fn local_lan_ip() -> Option<String> {
+/// Every usable IPv4 address on this machine, with the interface it belongs to.
+///
+/// The old approach opened a UDP socket toward 8.8.8.8 and reported whichever
+/// interface the OS picked for it. That is the *internet-facing* route, which is
+/// often the wrong one to hand a peer: on a laptop running a VM, or on VPN, the
+/// address a teammate can actually reach lives on a different adapter entirely,
+/// and the user had no way to discover it from inside the app.
+///
+/// So we list them all and let the human choose — they know whether their peer is
+/// on Wi-Fi or in a bridged VM, and the interface name makes that obvious.
+///
+/// The address the OS would pick for outbound traffic, if it can be determined.
+///
+/// No packet is sent — connecting a UDP socket only performs route selection.
+/// This is the best single guess for "the LAN address a normal peer reaches",
+/// so it stays, but purely as a hint that marks one entry as primary. It is no
+/// longer the only address the user gets to see.
+fn route_selected_ip() -> Option<String> {
     let sock = std::net::UdpSocket::bind("0.0.0.0:0").ok()?;
-    // No packet is actually sent; this just selects the outbound interface.
     sock.connect("8.8.8.8:80").ok()?;
     sock.local_addr().ok().map(|a| a.ip().to_string())
+}
+
+/// Every usable IPv4 address on this machine: (interface, ip, is_primary).
+///
+/// Ordering is a convenience, not a guarantee — which address a peer can reach
+/// depends on their network, and only the human knows that. The route-selected
+/// address comes first because it is right for the ordinary "two laptops on the
+/// same Wi-Fi" case; virtual and secondary adapters follow, so a teammate on a
+/// host-only VM or a VPN can find the one that actually works.
+fn local_lan_ips() -> Vec<(String, String, bool)> {
+    let Ok(ifaces) = if_addrs::get_if_addrs() else {
+        return Vec::new();
+    };
+    let primary = route_selected_ip();
+
+    let mut out: Vec<(String, String, bool, u8)> = ifaces
+        .into_iter()
+        .filter(|i| !i.is_loopback())
+        .filter_map(|i| match i.ip() {
+            std::net::IpAddr::V4(v4) => {
+                // Skip link-local autoconfig (169.254.x) — never routable to a peer.
+                if v4.is_link_local() || v4.is_unspecified() {
+                    return None;
+                }
+                let ip = v4.to_string();
+                let is_primary = primary.as_deref() == Some(ip.as_str());
+                // 0 = the OS's own choice, 1 = private LAN, 2 = everything else.
+                let rank = if is_primary {
+                    0
+                } else if v4.is_private() {
+                    1
+                } else {
+                    2
+                };
+                Some((i.name.clone(), ip, is_primary, rank))
+            }
+            _ => None, // IPv6 omitted: the mesh dials IPv4 literals
+        })
+        .collect();
+
+    out.sort_by(|a, b| a.3.cmp(&b.3).then(a.1.cmp(&b.1)));
+    out.dedup_by(|a, b| a.1 == b.1);
+    out.into_iter().map(|(n, ip, p, _)| (n, ip, p)).collect()
+}
+
+#[cfg(test)]
+mod net_tests {
+    use super::local_lan_ips;
+
+    /// Whatever this machine has, the list must never contain an address a peer
+    /// could not dial. Holds on a laptop, a CI box, and an offline machine alike.
+    #[test]
+    fn only_offers_dialable_addresses() {
+        // Visible with `cargo test -- --nocapture`; handy when a peer cannot
+        // connect and you need to see what this machine is actually offering.
+        for (n, ip, p) in local_lan_ips() {
+            eprintln!("  {}{:<38} {}", if p { "* " } else { "  " }, n, ip);
+        }
+        for (name, ip, _) in local_lan_ips() {
+            let v4: std::net::Ipv4Addr = ip.parse().expect("must be a valid IPv4 literal");
+            assert!(!v4.is_loopback(), "{name} -> {ip} is loopback");
+            assert!(!v4.is_link_local(), "{name} -> {ip} is 169.254 autoconfig");
+            assert!(!v4.is_unspecified(), "{name} -> {ip} is 0.0.0.0");
+        }
+    }
+
+    /// At most one entry may claim to be primary, and if one does it must be
+    /// listed first — the Team panel presents it as the recommended address.
+    #[test]
+    fn primary_is_unique_and_first() {
+        let ips = local_lan_ips();
+        let primaries: Vec<_> = ips.iter().filter(|(_, _, p)| *p).collect();
+        assert!(primaries.len() <= 1, "more than one primary: {primaries:?}");
+        if let Some(pos) = ips.iter().position(|(_, _, p)| *p) {
+            assert_eq!(pos, 0, "primary address must sort first");
+        }
+    }
+
+    /// No duplicate addresses — the same IP appearing twice would just be noise
+    /// in a list whose whole purpose is helping a human choose one.
+    #[test]
+    fn addresses_are_unique() {
+        let ips = local_lan_ips();
+        let mut seen = std::collections::HashSet::new();
+        for (_, ip, _) in &ips {
+            assert!(seen.insert(ip.clone()), "duplicate address {ip}");
+        }
+    }
 }
 
 #[tauri::command]

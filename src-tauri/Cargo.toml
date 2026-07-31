@@ -71,6 +71,7 @@ regex = "1"
 # Integrated terminal — real PTY (pseudo-terminal), not a fake shell wrapper.
 portable-pty = "0.8"
 base64 = "0.22"
+if-addrs = "0.13"
 
 [features]
 default = ["custom-protocol"]

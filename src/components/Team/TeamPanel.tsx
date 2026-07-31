@@ -17,21 +17,32 @@ const STATUS_COLOR: Record<string, string> = {
 export function TeamPanel() {
   const { collaborators, teamChat, sendTeamChat, addNotification } = useAppStore()
   const [text, setText] = useState('')
-  const [net, setNet] = useState<{ ip: string; tcp_port: number } | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [net, setNet] = useState<{
+    tcp_port: number
+    addresses: { interface: string; ip: string; primary: boolean }[]
+  } | null>(null)
+  const [copied, setCopied] = useState<string | null>(null)
   const [connectAddr, setConnectAddr] = useState('')
   const [connecting, setConnecting] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    api.getNetworkInfo().then((n) => setNet({ ip: n.ip, tcp_port: n.tcp_port })).catch(() => setNet(null))
+    api.getNetworkInfo()
+      .then((n) => setNet({
+        tcp_port: n.tcp_port,
+        // Older payloads only carried a single `ip`; keep working with those.
+        addresses: n.addresses?.length
+          ? n.addresses
+          : [{ interface: 'network', ip: n.ip, primary: true }],
+      }))
+      .catch(() => setNet(null))
   }, [])
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight })
   }, [teamChat.length])
 
-  const myAddr = net ? `${net.ip}:${net.tcp_port}` : '—'
+  const addrFor = (ip: string) => `${ip}:${net?.tcp_port ?? ''}`
 
   async function connect() {
     const a = connectAddr.trim()
@@ -139,19 +150,44 @@ export function TeamPanel() {
 
       {/* WAN connect */}
       <div className="p-2 shrink-0 space-y-1.5" style={{ borderTop: '0.5px solid rgba(255,255,255,0.05)' }}>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] font-mono tracking-widest uppercase text-text-muted/50">Your address</span>
-          <code className="text-[12px] font-mono text-cyan/80 flex-1 truncate">{myAddr}</code>
-          <button
-            onClick={() => {
-              if (!net) return
-              navigator.clipboard.writeText(myAddr).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) })
-            }}
-            className="p-0.5 text-text-muted hover:text-cyan transition-colors"
-            title="Copy address"
-          >
-            {copied ? <Check size={11} className="text-green" /> : <Copy size={11} />}
-          </button>
+        {/* Every address this machine has, not just the internet-facing one.
+            A teammate in a VM or behind a VPN often has to use one of the others,
+            so the interface name is shown to make the choice obvious. */}
+        <div className="space-y-1">
+          <span className="text-[11px] font-mono tracking-widest uppercase text-text-muted/50">
+            Your address{(net?.addresses.length ?? 0) > 1 ? 'es' : ''}
+          </span>
+          {!net && <div className="text-[12px] font-mono text-text-muted">—</div>}
+          {net?.addresses.map((a) => (
+            <div key={a.ip} className="flex items-center gap-1.5">
+              <code
+                className="text-[12px] font-mono flex-1 truncate"
+                style={{ color: a.primary ? 'rgba(0,200,255,0.8)' : 'rgba(255,255,255,0.45)' }}
+                title={`${a.interface} — ${addrFor(a.ip)}`}
+              >
+                {addrFor(a.ip)}
+              </code>
+              <span className="text-[10px] font-mono text-text-muted/50 truncate max-w-[92px]" title={a.interface}>
+                {a.primary ? 'primary' : a.interface}
+              </span>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(addrFor(a.ip)).then(() => {
+                    setCopied(a.ip); setTimeout(() => setCopied(null), 1500)
+                  })
+                }}
+                className="p-0.5 text-text-muted hover:text-cyan transition-colors shrink-0"
+                title={`Copy ${a.interface} address`}
+              >
+                {copied === a.ip ? <Check size={11} className="text-green" /> : <Copy size={11} />}
+              </button>
+            </div>
+          ))}
+          {(net?.addresses.length ?? 0) > 1 && (
+            <p className="text-[10px] text-text-muted/60 leading-snug">
+              Share the one on the same network as your teammate.
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-1.5 rounded-lg px-2"
           style={{ background: 'rgba(255,255,255,0.03)', border: '0.5px solid rgba(255,255,255,0.08)' }}
